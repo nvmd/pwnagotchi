@@ -5,11 +5,12 @@ import asyncio
 import random
 
 from requests.auth import HTTPBasicAuth
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 from time import sleep
 
 import pwnagotchi
 
-requests.adapters.DEFAULT_RETRIES = 5  # increase retries number
 
 ping_timeout = 180
 ping_interval = 15
@@ -42,12 +43,18 @@ class Client(object):
         self.password = password
         self.url = "%s://%s:%d/api" % (scheme, hostname, port)
         self.websocket = "ws://%s:%s@%s:%d/api" % (username, password, hostname, port)
-        self.auth = HTTPBasicAuth(username, password)
+
+        auth = HTTPBasicAuth(username, password)
+        retry = Retry(total=5, backoff_factor=min_sleep, backoff_jitter=0.5, backoff_max=max_sleep)
+        adapter = HTTPAdapter(max_retries=retry)
+        self.http = requests.Session(auth=auth)
+        self.http.mount('http://', adapter)
+        self.http.mount('https://', adapter)
 
     # session takes optional argument to pull a sub-dictionary
     #  ex.: "session/wifi", "session/ble"
     def session(self, sess="session"):
-        r = requests.get("%s/%s" % (self.url, sess), auth=self.auth)
+        r = self.http.get("%s/%s" % (self.url, sess))
         return decode(r)
 
     async def start_websocket(self, consumer):
@@ -104,15 +111,5 @@ class Client(object):
                 pwnagotchi.restart("AUTO")
 
     def run(self, command, verbose_errors=True):
-        while True:
-            try:
-                r = requests.post("%s/session" % self.url, auth=self.auth, json={'cmd': command})
-            except requests.exceptions.ConnectionError as e:
-                sleep_time = min_sleep + max_sleep*random.random()
-                logging.warning("[bettercap] can't run my request... connection to the bettercap endpoint failed...")
-                logging.warning('[bettercap] retrying run in {} sec'.format(sleep_time))
-                sleep(sleep_time)
-            else:
-                break
-
+        r = self.http.post("%s/session" % self.url, json={'cmd': command})
         return decode(r, verbose_errors=verbose_errors)
