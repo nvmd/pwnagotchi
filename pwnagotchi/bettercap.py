@@ -19,6 +19,10 @@ max_queue = 10000
 min_sleep = 0.5
 max_sleep = 5.0
 
+websockets.connect.BACKOFF_INITIAL_DELAY = min_sleep
+websockets.connect.BACKOFF_MIN_DELAY = min_sleep
+websockets.connect.BACKOFF_MAX_DELAY = max_sleep
+
 
 def decode(r, verbose_errors=True):
     try:
@@ -77,29 +81,18 @@ class Client(object):
 
         # restarted every time the connection fails
         while True:
-            logging.info("[bettercap] creating new websocket...")
             try:
-                async with websockets.connect(s, ping_interval=ping_interval, ping_timeout=ping_timeout,
-                                              max_queue=max_queue) as ws:
-                    # listener loop
-                    while True:
-                        try:
-                            async for msg in ws:
-                                try:
-                                    await consumer(msg)
-                                except Exception as ex:
-                                    logging.debug("[bettercap] error while parsing event (%s)", ex)
-                        except websockets.ConnectionClosedError:
+                logging.info("[bettercap] creating new websocket...")
+                async for ws in websockets.connect(s, ping_interval=ping_interval, ping_timeout=ping_timeout,
+                                                max_queue=max_queue):
+                    try:
+                        async for msg in ws:
                             try:
-                                pong = await ws.ping()
-                                await asyncio.wait_for(pong, timeout=ping_timeout)
-                                logging.warning('[bettercap] ping OK, keeping connection alive...')
-                                continue
-                            except:
-                                sleep_time = min_sleep + max_sleep*random.random()
-                                logging.warning('[bettercap] ping error - retrying connection in {} sec'.format(sleep_time))
-                                await asyncio.sleep(sleep_time)
-                                break
+                                await consumer(msg)
+                            except Exception as ex:
+                                logging.debug("[bettercap] error while parsing event (%s)", ex)
+                    except websockets.ConnectionClosedError:
+                        continue
             except ConnectionRefusedError:
                 sleep_time = min_sleep + max_sleep*random.random()
                 logging.warning('[bettercap] nobody seems to be listening at the bettercap endpoint...')
