@@ -10,7 +10,6 @@ from requests.packages.urllib3.util.retry import Retry
 
 import pwnagotchi
 
-requests.adapters.DEFAULT_RETRIES = 5  # increase retries number
 
 ping_timeout = 180
 ping_interval = 15
@@ -43,7 +42,14 @@ class Client(object):
         self.password = password
         self.url = "%s://%s:%d/api" % (scheme, hostname, port)
         self.websocket = "ws://%s:%s@%s:%d/api" % (username, password, hostname, port)
-        self.auth = HTTPBasicAuth(username, password)
+
+        retry = Retry(total=5, backoff_factor=min_sleep, backoff_max=max_sleep, backoff_jitter=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+
+        self.http = requests.Session()
+        self.http.auth = HTTPBasicAuth(username, password)
+        self.http.mount('http://', adapter)
+        self.http.mount('https://', adapter)
 
     # session takes optional argument to pull a sub-dictionary
     #  ex.: "session/wifi", "session/ble"
