@@ -131,8 +131,12 @@ class Voice:
     def on_waiting(self, secs):
         return random.choice([
             self._('Waiting for {secs}s ...').format(secs=secs),
-            '...',
-            self._('Looking around ({secs}s)').format(secs=secs)])
+            '...'])
+
+    def on_recon(self, secs):
+        return random.choice([
+            self._('Looking around ({secs}s)').format(secs=secs),
+            self._('Anybody where? ({secs}s)').format(secs=secs)])
 
     def on_assoc(self, ap):
         ssid, bssid = ap['hostname'], ap['mac']
