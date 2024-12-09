@@ -47,6 +47,8 @@ def pwnagotchi_cli():
                 plugins.on('internet_available', agent)
 
     def do_auto_mode(agent):
+        from pwnagotchi.agent import BettercapException
+
         logging.info("entering auto mode ...")
 
         agent.mode = 'auto'
@@ -86,6 +88,13 @@ def pwnagotchi_cli():
 
                 if grid.is_connected():
                     plugins.on('internet_available', agent)
+                    
+            except BettercapException as e:
+                logging.exception("Unrecovered bettercap exception (%s)", e)
+                logging.warning("Attempting to restart bettercap")
+                os.system("service bettercap restart")
+                time.sleep(1)
+                # reconfigure bettercap?
 
             except Exception as e:
                 if str(e).find("wifi.interface not set") > 0:

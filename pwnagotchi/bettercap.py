@@ -58,8 +58,11 @@ class Client(object):
     # session takes optional argument to pull a sub-dictionary
     #  ex.: "session/wifi", "session/ble"
     def session(self, sess="session"):
-        r = self.http.get("%s/%s" % (self.url, sess))
-        return decode(r)
+        try:
+            r = self.http.get("%s/%s" % (self.url, sess))
+            return decode(r)
+        except Exception as e:
+            raise BettercapException("Error getting session %s", sess) from e
 
     async def start_websocket(self, consumer):
         s = "%s/events" % self.websocket
@@ -102,7 +105,15 @@ class Client(object):
             except OSError:
                 logging.warning('connection to the bettercap endpoint failed...')
                 pwnagotchi.restart("AUTO")
+                # os.system("service bettercap restart")
+                # time.sleep(1)
 
     def run(self, command, verbose_errors=True):
-        r = self.http.post("%s/session" % self.url, json={'cmd': command})
-        return decode(r, verbose_errors=verbose_errors)
+        try:
+            r = self.http.post("%s/session" % self.url, json={'cmd': command})
+            return decode(r, verbose_errors=verbose_errors)
+        except Exception as e:
+            raise BettercapException("Error while executing command %s", command) from e
+
+class BettercapException(Exception):
+    pass

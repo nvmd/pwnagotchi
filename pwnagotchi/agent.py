@@ -14,7 +14,7 @@ import pwnagotchi.plugins as plugins
 from pwnagotchi.ui.web.server import Server
 from pwnagotchi.automata import Automata
 from pwnagotchi.log import LastSession
-from pwnagotchi.bettercap import Client
+from pwnagotchi.bettercap import Client, BettercapException
 from pwnagotchi.mesh.utils import AsyncAdvertiser
 from pwnagotchi.ai.train import AsyncTrainer
 
@@ -159,10 +159,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self.run('wifi.recon.channel clear')
         else:
             logging.debug("RECON %ds ON CHANNELS %s", recon_time, ','.join(map(str, channels)))
-            try:
-                self.run('wifi.recon.channel %s' % ','.join(map(str, channels)))
-            except Exception as e:
-                logging.exception("Error while setting wifi.recon.channels (%s)", e)
+            self.run('wifi.recon.channel %s' % ','.join(map(str, channels)))
 
         self.wait_for(recon_time, sleeping=False)
 
@@ -185,7 +182,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                     continue
                 else:
                     aps.append(ap)
+        except BettercapException as e:
+            raise e
         except Exception as e:
+            # consider exceptions other than from bettercap safe to ignore
             logging.exception("Error while getting access points (%s)", e)
 
         aps.sort(key=lambda ap: ap['channel'])
@@ -488,22 +488,24 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         elif self._epoch.did_associate:
             wait = self._config['personality']['min_recon_time']
 
-        if channel != self._current_channel:
-            if self._current_channel != 0 and wait > 0:
-                if verbose:
-                    logging.info("waiting for %ds on channel %d ...", wait, self._current_channel)
-                else:
-                    logging.debug("waiting for %ds on channel %d ...", wait, self._current_channel)
-                self.wait_for(wait)
-            if verbose and self._epoch.any_activity:
-                logging.info("CHANNEL %d", channel)
-            try:
-                self.run('wifi.recon.channel %d' % channel)
-                self._current_channel = channel
-                self._epoch.track(hop=True)
-                self._view.set('channel', '%d' % channel)
+        if self._current_channel != 0 and wait > 0:
+            if verbose:
+                logging.info("waiting for %ds on channel %d ...", wait, self._current_channel)
+            else:
+                logging.debug("waiting for %ds on channel %d ...", wait, self._current_channel)
+            self.wait_for(wait)
+        if verbose and self._epoch.any_activity:
+            logging.info("CHANNEL %d", channel)
 
-                plugins.on('channel_hop', self, channel)
+        try:
+            # only one channel to recon on
+            self.run('wifi.recon.channel %d' % channel)
+            self._current_channel = channel
+            self._epoch.track(hop=True)
+            self._view.set('channel', '%d' % channel)
 
-            except Exception as e:
-                logging.error("Error while setting channel (%s)", e)
+            plugins.on('channel_hop', self, channel)
+
+        except Exception as e:
+            logging.error("Error while setting channel (%s)", e)
+            raise e
