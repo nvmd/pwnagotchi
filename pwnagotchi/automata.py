@@ -92,10 +92,23 @@ class Automata(object):
         self._view.on_rebooting()
         plugins.on('rebooting', self)
 
-    def wait_for(self, t, sleeping=True):
-        plugins.on('sleep' if sleeping else 'wait', self, t)
-        self._view.wait(t, sleeping)
+    def sleep_for(self, t):
+        plugins.on('sleep', self, t)
+        self._view.sleep(t)
         self._epoch.track(sleep=True, inc=t)
+
+    def wait_for(self, t):
+        plugins.on('wait', self, t)
+        self._view.wait(t)
+        self._epoch.track(sleep=True, inc=t)
+
+    def set_observing_channel(self, t):
+        self.sleep_for(t)
+
+    def set_conducting_recon(self, recon_time):
+        plugins.on('wait', self, recon_time)
+        self._view.on_recon(recon_time)
+        self._epoch.track(sleep=True, inc=recon_time)
 
     def is_stale(self):
         return self._epoch.num_missed > self._config['personality']['max_misses_for_recon']

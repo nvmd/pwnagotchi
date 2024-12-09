@@ -151,8 +151,6 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         if self._epoch.inactive_for >= max_inactive:
             recon_time *= recon_mul
 
-        self._view.set('channel', '*')
-
         if not channels:
             self._current_channel = 0
             logging.debug("RECON %ds", recon_time)
@@ -164,7 +162,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             except Exception as e:
                 logging.exception("Error while setting wifi.recon.channels (%s)", e)
 
-        self.wait_for(recon_time, sleeping=False)
+        self.set_conducting_recon(recon_time)
 
     def set_access_points(self, aps):
         self._access_points = aps
@@ -494,7 +492,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                     logging.info("waiting for %ds on channel %d ...", wait, self._current_channel)
                 else:
                     logging.debug("waiting for %ds on channel %d ...", wait, self._current_channel)
-                self.wait_for(wait)
+                self.set_observing_channel(wait)
             if verbose and self._epoch.any_activity:
                 logging.info("CHANNEL %d", channel)
             try:
