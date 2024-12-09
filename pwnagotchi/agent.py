@@ -16,7 +16,7 @@ from pwnagotchi.identity import KeyPair
 from pwnagotchi.ui.web.server import Server
 from pwnagotchi.automata import Automata
 from pwnagotchi.log import LastSession
-from pwnagotchi.bettercap import Client
+from pwnagotchi.bettercap import Client, BettercapException
 from pwnagotchi.mesh.utils import AsyncAdvertiser
 from pwnagotchi.ai.train import AsyncTrainer
 
@@ -162,12 +162,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             # Enable channel hopping on all supported channels.
             self.run('wifi.recon.channel clear')
         else:
-            logging.debug("RECON %ds ON CHANNELS %s", recon_time, ','.join(map(str, channels)))
-            try:
-                # Comma separated list of channels to hop on
-                self.run('wifi.recon.channel %s' % ','.join(map(str, channels)))
-            except Exception as e:
-                logging.exception("Error while setting wifi.recon.channels (%s)", e)
+            # Comma separated list of channels to hop on
+            channel_list = ','.join(map(str, channels))
+            logging.debug("RECON %ds ON CHANNELS %s", recon_time, channel_list)
+            self.run('wifi.recon.channel %s' % channel_list)
 
         self.set_conducting_recon(recon_time)
 
@@ -190,7 +188,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                     continue
                 else:
                     aps.append(ap)
+        except BettercapException as e:
+            raise e
         except Exception as e:
+            # consider exceptions other than from bettercap safe to ignore
             logging.exception("Error while getting access points (%s)", e)
 
         aps.sort(key=lambda ap: ap['channel'])
@@ -533,3 +534,4 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         except Exception as e:
             logging.error("Error while setting channel (%s)", e)
+            raise e
