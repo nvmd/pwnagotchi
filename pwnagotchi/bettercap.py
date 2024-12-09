@@ -5,7 +5,8 @@ import asyncio
 import random
 
 from requests.auth import HTTPBasicAuth
-from time import sleep
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 import pwnagotchi
 
@@ -47,8 +48,11 @@ class Client(object):
     # session takes optional argument to pull a sub-dictionary
     #  ex.: "session/wifi", "session/ble"
     def session(self, sess="session"):
-        r = requests.get("%s/%s" % (self.url, sess), auth=self.auth)
-        return decode(r)
+        try:
+            r = self.http.get("%s/%s" % (self.url, sess))
+            return decode(r)
+        except Exception as e:
+            raise BettercapException("Error getting session %s", sess) from e
 
     async def start_websocket(self, consumer):
         s = "%s/events" % self.websocket
@@ -102,17 +106,15 @@ class Client(object):
             except OSError:
                 logging.warning('connection to the bettercap endpoint failed...')
                 pwnagotchi.restart("AUTO")
+                # os.system("service bettercap restart")
+                # time.sleep(1)
 
     def run(self, command, verbose_errors=True):
-        while True:
-            try:
-                r = requests.post("%s/session" % self.url, auth=self.auth, json={'cmd': command})
-            except requests.exceptions.ConnectionError as e:
-                sleep_time = min_sleep + max_sleep*random.random()
-                logging.warning("[bettercap] can't run my request... connection to the bettercap endpoint failed...")
-                logging.warning('[bettercap] retrying run in {} sec'.format(sleep_time))
-                sleep(sleep_time)
-            else:
-                break
+        try:
+            r = self.http.post("%s/session" % self.url, json={'cmd': command})
+            return decode(r, verbose_errors=verbose_errors)
+        except Exception as e:
+            raise BettercapException("Error while executing command %s", command) from e
 
-        return decode(r, verbose_errors=verbose_errors)
+class BettercapException(Exception):
+    pass
