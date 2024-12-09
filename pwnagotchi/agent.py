@@ -34,7 +34,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         AsyncTrainer.__init__(self, config)
 
         self._started_at = time.time()
-        self._current_channel = 0
+        self._current_channel = None
         self._tot_aps = 0
         self._aps_on_channel = 0
         self._supported_channels = utils.iface_channels(config['main']['iface'])
@@ -152,14 +152,16 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             recon_time *= recon_mul
 
         self._view.set('channel', '*')
+        self._current_channel = None
 
         if not channels:
-            self._current_channel = 0
             logging.debug("RECON %ds", recon_time)
+            # Enable channel hopping on all supported channels.
             self.run('wifi.recon.channel clear')
         else:
             logging.debug("RECON %ds ON CHANNELS %s", recon_time, ','.join(map(str, channels)))
             try:
+                # Comma separated list of channels to hop on
                 self.run('wifi.recon.channel %s' % ','.join(map(str, channels)))
             except Exception as e:
                 logging.exception("Error while setting wifi.recon.channels (%s)", e)
@@ -197,7 +199,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def get_aps_on_channel(self):
         return self._aps_on_channel
 
-    def get_current_channel(self):
+    def get_current_channel(self) -> int | None:
         return self._current_channel
 
     def get_access_points_by_channel(self):
@@ -238,7 +240,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def _update_counters(self):
         self._tot_aps = len(self._access_points)
         tot_stas = sum(len(ap['clients']) for ap in self._access_points)
-        if self._current_channel == 0:
+        if self._is_recon_channel_hopping():
             self._view.set('aps', '%d' % self._tot_aps)
             self._view.set('sta', '%d' % tot_stas)
         else:
@@ -411,6 +413,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             if bssid.lower() in key:
                 return True
         return False
+    
+    def _is_recon_channel_hopping(self):
+        return self._current_channel is None
 
     def _should_interact(self, who):
         if self._has_handshake(who):
@@ -477,6 +482,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         if self.is_stale():
             logging.debug("recon is stale, skipping set_channel(%d)", channel)
             return
+        if channel == self._current_channel:
+            return
 
         # if in the previous loop no client stations has been deauthenticated
         # and only association frames have been sent, we don't need to wait
@@ -488,22 +495,23 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         elif self._epoch.did_associate:
             wait = self._config['personality']['min_recon_time']
 
-        if channel != self._current_channel:
-            if self._current_channel != 0 and wait > 0:
-                if verbose:
-                    logging.info("waiting for %ds on channel %d ...", wait, self._current_channel)
-                else:
-                    logging.debug("waiting for %ds on channel %d ...", wait, self._current_channel)
-                self.wait_for(wait)
-            if verbose and self._epoch.any_activity:
-                logging.info("CHANNEL %d", channel)
-            try:
-                self.run('wifi.recon.channel %d' % channel)
-                self._current_channel = channel
-                self._epoch.track(hop=True)
-                self._view.set('channel', '%d' % channel)
+        if (not self._is_recon_channel_hopping()) and wait > 0:
+            if verbose:
+                logging.info("waiting for %ds on channel %d ...", wait, self._current_channel)
+            else:
+                logging.debug("waiting for %ds on channel %d ...", wait, self._current_channel)
+            self.wait_for(wait)
+        if verbose and self._epoch.any_activity:
+            logging.info("CHANNEL %d", channel)
 
-                plugins.on('channel_hop', self, channel)
+        try:
+            # only one channel to recon on
+            self.run('wifi.recon.channel %d' % channel)
+            self._current_channel = channel
+            self._epoch.track(hop=True)
+            self._view.set('channel', '%d' % channel)
 
-            except Exception as e:
-                logging.error("Error while setting channel (%s)", e)
+            plugins.on('channel_hop', self, channel)
+
+        except Exception as e:
+            logging.error("Error while setting channel (%s)", e)
