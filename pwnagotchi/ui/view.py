@@ -338,37 +338,19 @@ class View(object):
         self.set('status', self._voice.on_reading_logs(lines_so_far))
         self.update()
 
-    def wait(self, secs, sleeping=True):
-        was_normal = self.is_normal()
-        part = secs/10.0
+    def sleep(self, secs):
+        self.animate(secs, self._sleeping_face)
 
-        for step in range(0, 10):
-            # if we weren't in a normal state before going
-            # to sleep, keep that face and status on for
-            # a while, otherwise the sleep animation will
-            # always override any minor state change before it
-            if was_normal or step > 5:
-                if sleeping:
-                    if secs > 1:
-                        self.set('face', faces.SLEEP)
-                        self.set('status', self._voice.on_napping(int(secs)))
-
-                    else:
-                        self.set('face', faces.SLEEP2)
-                        self.set('status', self._voice.on_awakening())
-                else:
-                    self.set('status', self._voice.on_waiting(int(secs)))
-
-                    good_mood = self._agent.in_good_mood()
-                    if step % 2 == 0:
-                        self.set('face', faces.LOOK_R_HAPPY if good_mood else faces.LOOK_R)
-                    else:
-                        self.set('face', faces.LOOK_L_HAPPY if good_mood else faces.LOOK_L)
-
-            time.sleep(part)
-            secs -= part
-
-        self.on_normal()
+    def wait(self, secs, get_voice=None):
+        def _waiting_face_closure(was_normal, step, secs_remaining):
+            if get_voice != None:
+                waiting_voice = get_voice
+            else:
+                # use generic waiting voice if not specified
+                waiting_voice = self._voice.on_waiting
+            return self._waiting_face_with_voice(was_normal, step, secs_remaining,
+                                                 waiting_voice)
+        self.animate(secs, _waiting_face_closure)
 
     def on_shutdown(self):
         self.set('face', faces.SLEEP)
@@ -405,6 +387,10 @@ class View(object):
         self.set('face', faces.EXCITED)
         self.set('status', self._voice.on_excited())
         self.update()
+
+    def on_recon(self, t):
+        self.set('channel', '*')
+        self.wait(t, self._voice.on_recon)
 
     def on_assoc(self, ap):
         self.set('face', faces.INTENSE)
@@ -456,6 +442,39 @@ class View(object):
         self.set('face', faces.DEBUG)
         self.set('status', self._voice.custom(text))
         self.update()
+
+    def _waiting_face(self, was_normal, step, secs_remaining, get_voice):
+        self.set('status', get_voice(secs_remaining))
+        good_mood = self._agent.in_good_mood()
+        if step % 2 == 0:
+            self.set('face', faces.LOOK_R_HAPPY if good_mood else faces.LOOK_R)
+        else:
+            self.set('face', faces.LOOK_L_HAPPY if good_mood else faces.LOOK_L)
+
+    def _sleeping_face(self, was_normal, step, secs_remaining):
+        if secs_remaining > 1:
+            self.set('face', faces.SLEEP)
+            self.set('status', self._voice.on_napping(int(secs_remaining)))
+        else:
+            self.set('face', faces.SLEEP2)
+            self.set('status', self._voice.on_awakening())
+
+    def animate(self, secs, what):
+        was_normal = self.is_normal()
+        part = secs/10.0
+
+        for step in range(0, 10):
+            # if we weren't in a normal state before going
+            # to sleep, keep that face and status on for
+            # a while, otherwise the sleep animation will
+            # always override any minor state change before it
+            if was_normal or step > 5:
+                what(was_normal, step, secs)
+
+            time.sleep(part)
+            secs -= part
+
+        self.on_normal()
 
     def update(self, force=False, new_data={}):
         for key, val in new_data.items():
