@@ -2,12 +2,13 @@
 # Copyright (C) 2024
 # This file is distributed under the same license as the pwnagotchi package.
 # Fabiano F O <fabfernandes@hotmail.com>, 2024.
-# 
+#
+
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-12-16 20:46+0100\n"
+"POT-Creation-Date: 2024-03-25 22:30+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Fabiano F O <fabfernandes@hotmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -28,11 +29,11 @@ msgstr "Novo dia, Nova caçada, Novos pwns!"
 msgid "Hack the Planet!"
 msgstr "Hackeie o Planeta!"
 
-msgid "No more mister Wi-Fi!!"
-msgstr ""
+msgid "AI ready."
+msgstr "IA pronta."
 
-msgid "Pretty fly 4 a Wi-Fi!"
-msgstr ""
+msgid "The neural network is ready."
+msgstr "A rede neural está pronta."
 
 msgid "Generating keys, do not turn off ..."
 msgstr "Gerando chaves, não desligue ..."
@@ -257,9 +258,3 @@ msgstr "minuto"
 
 msgid "second"
 msgstr "segundo"
-
-#~ msgid "AI ready."
-#~ msgstr "IA pronta."
-
-#~ msgid "The neural network is ready."
-#~ msgstr "A rede neural está pronta."
