@@ -100,9 +100,9 @@ class AsyncTrainer(object):
         self._training_epochs = for_epochs
 
         if training:
-            plugins.on('ai_training_start', self, for_epochs)
+            self.on_ai_training_start(for_epochs)
         else:
-            plugins.on('ai_training_end', self)
+            self.on_ai_training_end()
 
     def is_training(self):
         return self._is_training
@@ -162,6 +162,15 @@ class AsyncTrainer(object):
         self._view.on_demotivated(r)
         plugins.on('ai_worst_reward', self, r)
 
+    def on_ai_training_start(self, for_epochs):
+        logging.info("[AI] learning for %d epochs ..." % for_epochs)
+        self._view.set("mode", " AI*")
+        plugins.on('ai_training_start', self, for_epochs)
+        
+    def on_ai_training_end(self):
+        self._view.set("mode", "  AI")
+        plugins.on('ai_training_end', self)
+
     def _ai_worker(self):
         self._model = ai.load(self._config, self, self._epoch)
 
@@ -175,14 +184,12 @@ class AsyncTrainer(object):
                 self._model.env.render()
                 # enter in training mode?
                 if random.random() > self._config['ai']['laziness']:
-                    logging.info("[AI] learning for %d epochs ..." % epochs_per_episode)
                     try:
                         self.set_training(True, epochs_per_episode)
                         # back up brain file before starting new training set
                         if os.path.isfile(self._nn_path):
                             back = "%s.bak" % self._nn_path
                             os.replace(self._nn_path, back)
-                        self._view.set("mode", "  AI")
                         self._model.learn(total_timesteps=epochs_per_episode, callback=self.on_ai_training_step)
                     except Exception as e:
                         logging.exception("[AI] error while training (%s)", e)
