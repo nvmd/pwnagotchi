@@ -280,8 +280,7 @@ class View(object):
     def on_shutdown(self):
         self.set('face', faces.SLEEP)
         self.set('status', self._voice.on_shutdown())
-        self.update(force=True)
-        self._frozen = True
+        self.update(force=True, freeze=True)
 
     def on_bored(self):
         self.set('face', faces.BORED)
@@ -364,7 +363,7 @@ class View(object):
     def on_rebooting(self):
         self.set('face', faces.BROKEN)
         self.set('status', self._voice.on_rebooting())
-        self.update()
+        self.update(force=True, freeze=True)
 
     def on_custom(self, text):
         self.set('face', faces.DEBUG)
@@ -404,13 +403,14 @@ class View(object):
 
         self.on_normal()
 
-    def update(self, force=False, new_data={}):
+    def update(self, force=False, new_data={}, freeze=False):
         for key, val in new_data.items():
             self.set(key, val)
 
         with self._lock:
             if self._frozen:
                 return
+            self._frozen = freeze
 
             state = self._state
             changes = state.changes(ignore=self._ignore_changes)
