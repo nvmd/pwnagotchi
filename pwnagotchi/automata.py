@@ -105,10 +105,12 @@ class Automata(object):
         self._epoch.track(sleep=True, inc=t)
 
     def set_observing_channel(self, t):
-        self.sleep_for(t)
+        plugins.on('sleep', self, t)    # 'sleep' for backward compatibility
+        self._view.on_listening(t)
+        self._epoch.track(sleep=True, inc=t)
 
     def set_conducting_recon(self, recon_time):
-        plugins.on('wait', self, recon_time)
+        plugins.on('wait', self, recon_time)    # 'wait' for backward compatibility
         self._view.on_recon(recon_time)
         self._epoch.track(sleep=True, inc=recon_time)
 
