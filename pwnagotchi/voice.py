@@ -136,7 +136,12 @@ class Voice:
     def on_recon(self, secs):
         return random.choice([
             self._('Looking around ({secs}s)').format(secs=secs),
-            self._('Anybody where? ({secs}s)').format(secs=secs)])
+            self._('Is anyone there? ({secs}s)').format(secs=secs)])
+
+    def on_listening(self, secs):
+        return random.choice([
+            self._('I\'m listening... ({secs}s)').format(secs=secs),
+            self._('Observing... ({secs}s)').format(secs=secs)])
 
     def on_assoc(self, ap):
         ssid, bssid = ap['hostname'], ap['mac']

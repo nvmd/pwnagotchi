@@ -317,6 +317,9 @@ class View(object):
         self.set('channel', '*')
         self.wait(t, self._voice.on_recon)
 
+    def on_listening(self, t):
+        self.wait(t, self._voice.on_listening)
+
     def on_assoc(self, ap):
         self.set('face', faces.INTENSE)
         self.set('status', self._voice.on_assoc(ap))
