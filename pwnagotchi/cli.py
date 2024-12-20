@@ -74,6 +74,8 @@ def pwnagotchi_cli():
                             agent.deauth(ap, sta)
                             time.sleep(1)  # delay to not trigger nexmon firmware bugs
 
+                    agent.observe_current_channel()
+
                 # An interesting effect of this:
                 #
                 # From Pwnagotchi's perspective, the more new access points

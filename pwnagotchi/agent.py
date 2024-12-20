@@ -478,16 +478,14 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 time.sleep(throttle)
             self._view.on_normal()
 
-    def set_channel(self, channel, verbose=True):
-        if self.is_stale():
-            logging.debug("recon is stale, skipping set_channel(%d)", channel)
-            return
-        if channel == self._current_channel:
+    def observe_current_channel(self, verbose=True):
+        if self._is_recon_channel_hopping():
             return
 
-        # if in the previous loop no client stations has been deauthenticated
+        # Wait on the current channel if needed
+        # if on the current channel no client stations has been deauthenticated
         # and only association frames have been sent, we don't need to wait
-        # very long before switching channel as we don't have to wait for
+        # on it very long (before switching channel) as we don't have to wait for
         # such client stations to reconnect in order to sniff the handshake.
         wait = 0
         if self._epoch.did_deauth:
@@ -495,12 +493,22 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         elif self._epoch.did_associate:
             wait = self._config['personality']['min_recon_time']
 
-        if (not self._is_recon_channel_hopping()) and wait > 0:
+        if wait > 0:
             if verbose:
                 logging.info("waiting for %ds on channel %d ...", wait, self._current_channel)
             else:
                 logging.debug("waiting for %ds on channel %d ...", wait, self._current_channel)
             self.wait_for(wait)
+
+    def set_channel(self, channel, verbose=True):
+        if self.is_stale():
+            logging.debug("recon is stale, skipping set_channel(%d)", channel)
+            return
+        if channel == self._current_channel:
+            return
+
+        # Hop to the new channel
+
         if verbose and self._epoch.any_activity:
             logging.info("CHANNEL %d", channel)
 
@@ -508,6 +516,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             # only one channel to recon on
             self.run('wifi.recon.channel %d' % channel)
             self._current_channel = channel
+
             self._epoch.track(hop=True)
             self._view.set('channel', '%d' % channel)
 
