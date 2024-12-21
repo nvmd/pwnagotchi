@@ -71,8 +71,7 @@ def pwnagotchi_cli():
                         agent.associate(ap)
                         # deauth all client stations in order to get a full handshake
                         for sta in ap['clients']:
-                            agent.deauth(ap, sta)
-                            time.sleep(1)  # delay to not trigger nexmon firmware bugs
+                            agent.deauth(ap, sta)                            
 
                     agent.observe_current_channel()
 

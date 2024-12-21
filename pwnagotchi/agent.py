@@ -431,13 +431,26 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self._history[who] += 1
 
         return self._history[who] < self._config['personality']['max_interactions']
+    
+    def _throttle_if_needed(self, throttle_type):
+        if throttle_type in self._config['personality']:
+            throttle = self._config['personality'][throttle_type]
+            if throttle > 1:
+                # will track sleep time in epoch, we probably don't need that, 
+                # and it'll also call the plugins
+                # self.sleep_for(throttle)
+                # Preserve old semantics for now, just update the view
+                self._view.wait(throttle, sleeping=True)
+            else:
+                time.sleep(throttle)
+                self._view.on_normal()
+            return throttle
+        return 0
 
-    def associate(self, ap, throttle=-1):
+    def associate(self, ap):
         if self.is_stale():
             logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
             return
-        if throttle == -1 and "throttle_a" in self._config['personality']:
-            throttle = self._config['personality']['throttle_a']
 
         if self._config['personality']['associate'] and self._should_interact(ap['mac']):
             self._view.on_assoc(ap)
@@ -451,17 +464,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 self._on_error(ap['mac'], e)
 
             plugins.on('association', self, ap)
-            if throttle > 0:
-                time.sleep(throttle)
-            self._view.on_normal()
+            self._throttle_if_needed('throttle_a')
 
-    def deauth(self, ap, sta, throttle=-1):
+    def deauth(self, ap, sta):
         if self.is_stale():
             logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
             return
-
-        if throttle == -1 and "throttle_d" in self._config['personality']:
-            throttle = self._config['personality']['throttle_d']
 
         if self._config['personality']['deauth'] and self._should_interact(sta['mac']):
             self._view.on_deauth(sta)
@@ -476,9 +484,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 self._on_error(sta['mac'], e)
 
             plugins.on('deauthentication', self, ap, sta)
-            if throttle > 0:
-                time.sleep(throttle)
-            self._view.on_normal()
+            self._throttle_if_needed('throttle_d')
 
     def observe_current_channel(self, verbose=True):
         if self._is_recon_channel_hopping():
