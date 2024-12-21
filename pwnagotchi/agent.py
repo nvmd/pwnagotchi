@@ -11,6 +11,8 @@ import subprocess
 import pwnagotchi
 import pwnagotchi.utils as utils
 import pwnagotchi.plugins as plugins
+from pwnagotchi.ui.view import View
+from pwnagotchi.identity import KeyPair
 from pwnagotchi.ui.web.server import Server
 from pwnagotchi.automata import Automata
 from pwnagotchi.log import LastSession
@@ -22,7 +24,7 @@ RECOVERY_DATA_FILE = '/root/.pwnagotchi-recovery'
 
 
 class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
-    def __init__(self, view, config, keypair):
+    def __init__(self, view: View, config: dict, keypair: KeyPair):
         Client.__init__(self,
                         "127.0.0.1" if "hostname" not in config['bettercap'] else config['bettercap']['hostname'],
                         "http" if "scheme" not in config['bettercap'] else config['bettercap']['scheme'],

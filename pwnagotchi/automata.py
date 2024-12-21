@@ -2,12 +2,13 @@ import logging
 
 import pwnagotchi.plugins as plugins
 from pwnagotchi.ai.epoch import Epoch
+from pwnagotchi.ui.view import View
 import os
 
 
 # basic mood system
 class Automata(object):
-    def __init__(self, config, view):
+    def __init__(self, config: dict, view: View):
         self._config = config
         self._view = view
         self._epoch = Epoch(config)
