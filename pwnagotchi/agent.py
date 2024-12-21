@@ -442,7 +442,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 # and it'll also call the plugins
                 # self.sleep_for(throttle)
                 # Preserve old semantics for now, just update the view
-                self._view.wait(throttle, sleeping=True)
+                self._view.sleep(throttle)
             else:
                 time.sleep(throttle)
                 self._view.on_normal()
