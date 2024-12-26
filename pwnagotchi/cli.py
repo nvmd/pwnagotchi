@@ -9,21 +9,23 @@ import os
 import re
 
 import pwnagotchi
+from pwnagotchi.agent import Agent
+from pwnagotchi.agent import StaleReconError
+from pwnagotchi.ui.display import Display
 from pwnagotchi import utils
 from pwnagotchi.google import cmd as google_cmd
 from pwnagotchi.plugins import cmd as plugins_cmd
 from pwnagotchi import log
 from pwnagotchi import fs
 from pwnagotchi.utils import DottedTomlEncoder, parse_version as version_to_tuple
-from pwnagotchi.agent import StaleReconError
 
 def pwnagotchi_cli():
-    def do_clear(display):
+    def do_clear(display: Display):
         logging.info("clearing the display ...")
         display.clear()
         sys.exit(0)
 
-    def do_manual_mode(agent):
+    def do_manual_mode(agent: Agent):
         logging.info("entering manual mode ...")
 
         agent.mode = 'manual'
@@ -44,7 +46,7 @@ def pwnagotchi_cli():
             if grid.is_connected():
                 plugins.on('internet_available', agent)
 
-    def do_auto_mode(agent):
+    def do_auto_mode(agent: Agent):
         logging.info("entering auto mode ...")
 
         agent.mode = 'auto'
@@ -305,9 +307,7 @@ def pwnagotchi_cli():
         sys.exit(0)
 
     from pwnagotchi.identity import KeyPair
-    from pwnagotchi.agent import Agent
     from pwnagotchi.ui import fonts
-    from pwnagotchi.ui.display import Display
     from pwnagotchi import grid
     from pwnagotchi import plugins
 
