@@ -22,6 +22,8 @@ from pwnagotchi.ai.train import AsyncTrainer
 
 RECOVERY_DATA_FILE = '/root/.pwnagotchi-recovery'
 
+class StaleReconError(Exception):
+    pass
 
 class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def __init__(self, view: View, config: dict, keypair: KeyPair):
@@ -450,7 +452,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def associate(self, ap):
         if self.is_stale():
             logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
-            return
+            raise StaleReconError()
 
         if self._config['personality']['associate'] and self._should_interact(ap['mac']):
             self._view.on_assoc(ap)
@@ -469,7 +471,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def deauth(self, ap, sta):
         if self.is_stale():
             logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
-            return
+            raise StaleReconError()
 
         if self._config['personality']['deauth'] and self._should_interact(sta['mac']):
             self._view.on_deauth(sta)
@@ -511,7 +513,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def set_channel(self, channel, verbose=True):
         if self.is_stale():
             logging.debug("recon is stale, skipping set_channel(%d)", channel)
-            return
+            raise StaleReconError()
         if channel == self._current_channel:
             return
 

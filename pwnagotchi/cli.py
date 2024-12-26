@@ -15,7 +15,7 @@ from pwnagotchi.plugins import cmd as plugins_cmd
 from pwnagotchi import log
 from pwnagotchi import fs
 from pwnagotchi.utils import DottedTomlEncoder, parse_version as version_to_tuple
-
+from pwnagotchi.agent import StaleReconError
 
 def pwnagotchi_cli():
     def do_clear(display):
@@ -58,22 +58,29 @@ def pwnagotchi_cli():
                 # get nearby access points grouped by channel
                 channels = agent.get_access_points_by_channel()
                 # for each channel
-                for ch, aps in channels:
-                    time.sleep(1)
-                    agent.set_channel(ch)
+                try:
+                    for ch, aps in channels:
+                        time.sleep(1)
+                        agent.set_channel(ch)
 
-                    if not agent.is_stale() and agent.any_activity():
+                        # for each ap on this channel
+                        for ap in aps:
+                            # send an association frame in order to get for a PMKID
+                            agent.associate(ap)
+                            # deauth all client stations in order to get a full handshake
+                            for sta in ap['clients']:
+                                agent.deauth(ap, sta)
+
+                        agent.observe_current_channel()
                         logging.info("%d access points on channel %d" % (len(aps), ch))
-
-                    # for each ap on this channel
-                    for ap in aps:
-                        # send an association frame in order to get for a PMKID
-                        agent.associate(ap)
-                        # deauth all client stations in order to get a full handshake
-                        for sta in ap['clients']:
-                            agent.deauth(ap, sta)                            
-
-                    agent.observe_current_channel()
+                except StaleReconError as e:
+                    # don't observe_current_channel() even though some 
+                    # assocs/deauths may have been sent
+                    # we most probably won't get any replies for assocs/deuths
+                    # we've made earlier than recon got stale
+                    # if the latter are gone, then the former has even greater
+                    # chance of being "gone" by now
+                    logging.warning("recon is stale -> end epoch")
 
                 # An interesting effect of this:
                 #
