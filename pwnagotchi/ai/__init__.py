@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import sys
 
 # https://stackoverflow.com/questions/40426502/is-there-a-way-to-suppress-the-messages-tensorflow-prints/40426709
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
@@ -68,7 +69,9 @@ def load(config, agent, epoch, from_disk=True):
         logging.info("[AI] Error while starting AI")
         logging.debug("[AI] error while starting AI (%s)", e)
         logging.info("[AI] Deleting brain and restarting.")
-        os.system("rm /root/brain.nn && service pwnagotchi restart")
+        os.system("rm /root/brain.nn")
+        # rely on systemd to restart us according to restart policy
+        sys.exit(1)
 
     logging.warning("[AI] AI not loaded!")
     return False
