@@ -188,11 +188,11 @@ class AsyncTrainer(object):
                         logging.exception("[AI] error while training (%s)", e)
                     finally:
                         self.set_training(False)
-                        obs = self._model.env.reset()
+                        obs, _ = self._model.env.reset()
                 # init the first time
                 elif obs is None:
-                    obs = self._model.env.reset()
+                    obs, _ = self._model.env.reset()
 
                 # run the inference
                 action, _ = self._model.predict(obs)
-                obs, _, _, _ = self._model.env.step(action)
+                obs, _, _, _, _ = self._model.env.step(action)
