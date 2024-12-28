@@ -19,7 +19,9 @@
           nix-output-monitor
           bash-language-server
           shellcheck
-          (python311.withPackages(ps: with ps; [ 
+          (python311.withPackages(ps: with ps; [
+            pip
+
             dbus-python
             file-read-backwards
             flask
