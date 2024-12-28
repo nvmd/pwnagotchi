@@ -172,27 +172,43 @@ class AsyncTrainer(object):
 
             obs = None
             while True:
-                self._model.env.render()
-                # enter in training mode?
-                if random.random() > self._config['ai']['laziness']:
-                    logging.info("[AI] learning for %d epochs ..." % epochs_per_episode)
-                    try:
-                        self.set_training(True, epochs_per_episode)
-                        # back up brain file before starting new training set
-                        if os.path.isfile(self._nn_path):
-                            back = "%s.bak" % self._nn_path
-                            os.replace(self._nn_path, back)
-                        self._view.set("mode", "  AI")
-                        self._model.learn(total_timesteps=epochs_per_episode, callback=self.on_ai_training_step)
-                    except Exception as e:
-                        logging.exception("[AI] error while training (%s)", e)
-                    finally:
-                        self.set_training(False)
-                        obs = self._model.env.reset()
-                # init the first time
-                elif obs is None:
-                    obs = self._model.env.reset()
+                try:
+                    self._model.env.render()
+                    # enter in training mode?
+                    if random.random() > self._config['ai']['laziness']:
+                        try:
+                            self.set_training(True, epochs_per_episode)
+                            # back up brain file before starting new training set
+                            if os.path.isfile(self._nn_path):
+                                back = "%s.bak" % self._nn_path
+                                os.replace(self._nn_path, back)
+                            self._model.learn(total_timesteps=epochs_per_episode, callback=self.on_ai_training_step)
+                        except Exception as e:
+                            logger.exception("[AI] error while training (%s)", e)
+                        finally:
+                            self.set_training(False)
 
-                # run the inference
-                action, _ = self._model.predict(obs)
-                obs, _, _, _ = self._model.env.step(action)
+                            # Environment is wrapped in a DummyVecEnv
+                            # stable-baselines3 DummyVecEnv's reset() returns only observation
+                            # https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecenv-api-vs-gym-api
+                            obs = self._model.env.reset()
+                    # init the first time
+                    elif obs is None:
+                        obs = self._model.env.reset()
+
+                    # run the inference
+                    action, _ = self._model.predict(obs)
+                    # save the observation for the next inference
+                    # one return value less than with gym api
+                    # https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecenv-api-vs-gym-api
+                    obs, _, _, _ = self._model.env.step(action)
+                except Exception as e:
+                    logger.exception(f"[AI] ignoring exception: {e}")
+                    continue
+        except Exception as e:
+            logger.exception(f"[AI] Error while starting AI: {e}")
+            logger.info("[AI] Deleting brain and restarting.")
+            os.system("rm /root/brain.nn")
+            # rely on systemd to restart us according to restart policy
+            logger.critical("Exiting to be restarted...")
+            os._exit(2) # kill all threads

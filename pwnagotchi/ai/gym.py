@@ -109,15 +109,16 @@ class Environment(gym.Env):
 
         self._agent.on_ai_step()
 
-        return self.last['state_v'], self.last['reward'], not self._agent.is_training(), {}
+        return self.last['state_v'], self.last['reward'], not self._agent.is_training(), False, {}
 
-    def reset(self):
-        # logging.info("[ai] resetting environment ...")
+    def reset(self, *, seed=None, options=None):
+        logging.info("[ai] resetting environment ...")
+        super().reset(seed=seed, options=options)    # https://github.com/DLR-RM/stable-baselines3/issues/1609#issuecomment-1694411306
         self._epoch_num = 0
         state = self._next_epoch()
         self.last['state'] = state
         self.last['state_v'] = featurizer.featurize(state, 1)
-        return self.last['state_v']
+        return self.last['state_v'], {}
 
     def _render_histogram(self, hist):
         for ch in range(featurizer.histogram_size):
