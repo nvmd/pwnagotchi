@@ -224,7 +224,7 @@ def display_for(config):
         from pwnagotchi.ui.hw.waveshare2in13_V3 import WaveshareV3
         return WaveshareV3(config)
 
-    elif config['ui']['display']['type'] == 'waveshare_4':
+    elif config['ui']['display']['type'] == 'waveshare2in13v4':
         from pwnagotchi.ui.hw.waveshare2in13_V4 import WaveshareV4
         return WaveshareV4(config)
 

@@ -387,7 +387,7 @@ def load_config(args):
         config['ui']['display']['type'] = 'waveshare_3'
 
     elif config['ui']['display']['type'] in ('ws_4', 'ws4', 'waveshare_4', 'waveshare4', 'waveshare2in13v4'):
-        config['ui']['display']['type'] = 'waveshare_4'
+        config['ui']['display']['type'] = 'waveshare2in13v4'
 
     elif config['ui']['display']['type'] in ('waveshare2in13b_v3', 'waveshare2in13b_v3', 'ws213bv3', 'waveshare_213bv3', 'waveshare213inb_v3'):
         config['ui']['display']['type'] = 'waveshare2in13b_v3'
