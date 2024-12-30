@@ -7,7 +7,7 @@ from PIL import Image,ImageDraw,ImageFont
 
 class WaveshareV4(DisplayImpl):
     def __init__(self, config):
-        super(WaveshareV4, self).__init__(config, 'waveshare_4')
+        super(WaveshareV4, self).__init__(config, 'waveshare2in13v4')
 
     def layout(self):
         fonts.setup(10, 9, 10, 35, 25, 9)
@@ -32,7 +32,7 @@ class WaveshareV4(DisplayImpl):
         return self._layout
 
     def initialize(self):
-        logging.info("initializing waveshare v2in13_V4 display")
+        logging.info(f"{self.name} display: initializing")
         from pwnagotchi.ui.hw.libs.waveshare.epaper.v2in13_V4.epd2in13_V4 import EPD
         self._display = EPD()
         self._display.init()
@@ -44,7 +44,7 @@ class WaveshareV4(DisplayImpl):
         except Exception as e: 
             logging.info(e)
 
-        logging.info("initializing waveshare v2in13_V4 display done")
+        logging.info(f"{self.name} display: initialized")
 
     def render(self, canvas):
         buf = self._display.getbuffer(canvas)

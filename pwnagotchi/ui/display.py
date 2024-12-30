@@ -123,7 +123,7 @@ class Display(View):
         return self._implementation.name == 'waveshare_3'
 
     def is_waveshare_v4(self):
-        return self._implementation.name == 'waveshare_4'
+        return self._implementation.name == 'waveshare2in13v4'
 
     def is_waveshare2in13b_v3(self):
         return self._implementation.name == 'waveshare2in13b_v3'
