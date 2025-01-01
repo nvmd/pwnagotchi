@@ -3,6 +3,8 @@ import time
 import logging
 import sys
 
+logger = logging.getLogger(__name__)
+
 # https://stackoverflow.com/questions/40426502/is-there-a-way-to-suppress-the-messages-tensorflow-prints/40426709
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 
@@ -13,59 +15,59 @@ def load(config, agent, epoch, from_disk=True):
     try:
         begin = time.time()
 
-        logging.info("[AI] bootstrapping dependencies ...")
+    logger.info("bootstrapping dependencies ...")
 
         start = time.time()
         SB_BACKEND = "stable_baselines3"
 
-        from stable_baselines3 import A2C
-        logging.debug("[AI] A2C imported in %.2fs" % (time.time() - start))
+    from stable_baselines3 import A2C
+    logger.debug("A2C imported in %.2fs" % (time.time() - start))
 
-        # remove invalid ai.parameters leftover from tensor_flow, if present
-        for key in [ 'alpha', 'epsilon', 'lr_schedule' ]:
-            if key in config['params']:
-                logging.info("Removing legacy ai parameter %s" % key);
-                del config['params'][key]
-        
-        start = time.time()
-        from stable_baselines3.a2c import MlpPolicy
-        logging.debug("[AI] MlpPolicy imported in %.2fs" % (time.time() - start))
-        SB_A2C_POLICY = MlpPolicy
+    # remove invalid ai.parameters leftover from tensor_flow, if present
+    for key in [ 'alpha', 'epsilon', 'lr_schedule' ]:
+        if key in config['params']:
+            logger.info("Removing legacy ai parameter %s" % key);
+            del config['params'][key]
+    
+    start = time.time()
+    from stable_baselines3.a2c import MlpPolicy
+    logger.debug("MlpPolicy imported in %.2fs" % (time.time() - start))
+    SB_A2C_POLICY = MlpPolicy
 
-        start = time.time()
-        from stable_baselines3.common.vec_env import DummyVecEnv
-        logging.debug("[AI] DummyVecEnv imported in %.2fs" % (time.time() - start))
+    start = time.time()
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    logger.debug("DummyVecEnv imported in %.2fs" % (time.time() - start))
 
-        start = time.time()
-        import pwnagotchi.ai.gym as wrappers
-        logging.debug("[AI] gym wrapper imported in %.2fs" % (time.time() - start))
+    start = time.time()
+    import pwnagotchi.ai.gym as wrappers
+    logger.debug("gym wrapper imported in %.2fs" % (time.time() - start))
 
         env = wrappers.Environment(agent, epoch)
         env = DummyVecEnv([lambda: env])
 
-        logging.info("[AI] creating model ...")
+    logger.info("creating model ...")
 
+    start = time.time()
+    a2c = A2C(SB_A2C_POLICY, env, **config['params'])
+    logger.debug("A2C created in %.2fs" % (time.time() - start))
+
+    if from_disk and os.path.exists(config['path']):
+        logger.info("loading model from %s ..." % config['path'])
         start = time.time()
-        a2c = A2C(SB_A2C_POLICY, env, **config['params'])
-        logging.debug("[AI] A2C created in %.2fs" % (time.time() - start))
+        a2c.load(config['path'], env)
+        logger.debug("A2C loaded in %.2fs" % (time.time() - start))
+    else:
+        logger.info("model created:")
+        for key, value in config['params'].items():
+            logger.info("      %s: %s" % (key, value))
 
-        if from_disk and os.path.exists(config['path']):
-            logging.info("[AI] loading %s ..." % config['path'])
-            start = time.time()
-            a2c.load(config['path'], env)
-            logging.debug("[AI] A2C loaded in %.2fs" % (time.time() - start))
-        else:
-            logging.info("[AI] model created:")
-            for key, value in config['params'].items():
-                logging.info("      %s: %s" % (key, value))
-
-        logging.debug("[AI] total loading time is %.2fs" % (time.time() - begin))
+    logger.debug("total loading time is %.2fs" % (time.time() - begin))
 
         return a2c
     except Exception as e:
-        logging.info("[AI] Error while starting AI")
-        logging.debug("[AI] error while starting AI (%s)", e)
-        logging.info("[AI] Deleting brain and restarting.")
+        logger.info("[AI] Error while starting AI")
+        logger.debug("[AI] error while starting AI (%s)", e)
+        logger.info("[AI] Deleting brain and restarting.")
         os.system("rm /root/brain.nn")
         # rely on systemd to restart us according to restart policy
         sys.exit(1)

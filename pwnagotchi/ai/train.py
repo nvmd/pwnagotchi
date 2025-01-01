@@ -9,6 +9,7 @@ import logging
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ai as ai
 
+logger = logging.getLogger(__name__)
 
 class Stats(object):
     def __init__(self, path, events_receiver):
@@ -54,7 +55,7 @@ class Stats(object):
     def load(self):
         with self._lock:
             if os.path.exists(self.path) and os.path.getsize(self.path) > 0:
-                logging.info("[AI] loading %s" % self.path)
+                logger.info("loading stats from %s" % self.path)
                 with open(self.path, 'rt') as fp:
                     obj = json.load(fp)
 
@@ -64,7 +65,7 @@ class Stats(object):
 
     def save(self):
         with self._lock:
-            logging.info("[AI] saving %s" % self.path)
+            logger.info("saving stats to %s" % self.path)
 
             data = json.dumps({
                 'born_at': self.born_at,
@@ -115,7 +116,7 @@ class AsyncTrainer(object):
         threading.Thread(target=self._ai_worker, args=(), name="AI Worker", daemon=True).start()
 
     def _save_ai(self):
-        logging.info("[AI] saving model to %s ..." % self._nn_path)
+        logger.info("saving model to %s ..." % self._nn_path)
         temp = "%s.tmp" % self._nn_path
         self._model.save(temp)
         os.replace(temp, self._nn_path)
@@ -134,15 +135,15 @@ class AsyncTrainer(object):
 
     def on_ai_policy(self, new_params):
         plugins.on('ai_policy', self, new_params)
-        logging.info("[AI] setting new policy:")
+        logger.info("setting new policy:")
         for name, value in new_params.items():
             if name in self._config['personality']:
                 curr_value = self._config['personality'][name]
                 if curr_value != value:
-                    logging.info("[AI] ! %s: %s -> %s" % (name, curr_value, value))
+                    logger.info("! %s: %s -> %s" % (name, curr_value, value))
                     self._config['personality'][name] = value
             else:
-                logging.error("[AI] param %s not in personality configuration!" % name)
+                logger.error("param %s not in personality configuration!" % name)
 
         self.run('set wifi.ap.ttl %d' % self._config['personality']['ap_ttl'])
         self.run('set wifi.sta.ttl %d' % self._config['personality']['sta_ttl'])
@@ -153,17 +154,17 @@ class AsyncTrainer(object):
         plugins.on('ai_ready', self)
 
     def on_ai_best_reward(self, r):
-        logging.info("[AI] best reward so far: %s" % r)
+        logger.info("best reward so far: %s" % r)
         self._view.on_motivated(r)
         plugins.on('ai_best_reward', self, r)
 
     def on_ai_worst_reward(self, r):
-        logging.info("[AI] worst reward so far: %s" % r)
+        logger.info("worst reward so far: %s" % r)
         self._view.on_demotivated(r)
         plugins.on('ai_worst_reward', self, r)
 
     def on_ai_training_start(self, for_epochs):
-        logging.info("[AI] learning for %d epochs ..." % for_epochs)
+        logger.info("learning for %d epochs ..." % for_epochs)
         self._view.set("mode", " AI*")
         plugins.on('ai_training_start', self, for_epochs)
         
@@ -193,7 +194,7 @@ class AsyncTrainer(object):
                                 os.replace(self._nn_path, back)
                             self._model.learn(total_timesteps=epochs_per_episode, callback=self.on_ai_training_step)
                         except Exception as e:
-                            logger.exception("[AI] error while training (%s)", e)
+                            logger.exception("error while training (%s)", e)
                         finally:
                             self.set_training(False)
 
@@ -212,11 +213,11 @@ class AsyncTrainer(object):
                     # https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecenv-api-vs-gym-api
                     obs, _, _, _ = self._model.env.step(action)
                 except Exception as e:
-                    logger.exception(f"[AI] ignoring exception: {e}")
+                    logger.exception(f"ignoring exception: {e}")
                     continue
         except Exception as e:
-            logger.exception(f"[AI] Error while starting AI: {e}")
-            logger.info("[AI] Deleting brain and restarting.")
+            logger.exception(f"Error while starting AI: {e}")
+            logger.info("Deleting brain and restarting.")
             os.system("rm /root/brain.nn")
             # rely on systemd to restart us according to restart policy
             logger.critical("Exiting to be restarted...")
