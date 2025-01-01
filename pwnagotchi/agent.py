@@ -133,6 +133,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 time.sleep(1)
 
     def start(self):
+        self.set_starting()
+
         if self._config['ai']['enabled']:
             self.start_ai()
         else:
@@ -140,10 +142,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         self._wait_bettercap()
         self.setup_events()
-        self.set_starting()
         self.start_monitor_mode()
         self.start_event_polling()
         self.start_session_fetcher()
+
         # print initial stats
         self.next_epoch()
         self.set_ready()
