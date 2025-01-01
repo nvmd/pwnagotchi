@@ -33,7 +33,7 @@ def decode(r, verbose_errors=True):
             err = "error %d: %s" % (r.status_code, r.text.strip())
             if verbose_errors:
                 logging.info(err)
-            raise Exception(err)
+            raise BettercapError(err)
         return r.text
 
 
@@ -62,7 +62,7 @@ class Client(object):
             r = self.http.get("%s/%s" % (self.url, sess))
             return decode(r)
         except Exception as e:
-            raise BettercapException("Error getting session %s", sess) from e
+            raise BettercapConnectionError(f"Error getting session {sess}") from e
 
     async def start_websocket(self, consumer):
         s = "%s/events" % self.websocket
@@ -98,8 +98,12 @@ class Client(object):
         try:
             r = self.http.post("%s/session" % self.url, json={'cmd': command})
             return decode(r, verbose_errors=verbose_errors)
+        except BettercapError as e:
+            raise e
         except Exception as e:
-            raise BettercapException("Error while executing command %s", command) from e
+            raise BettercapConnectionError(f"Error while executing command '{command}'") from e
 
-class BettercapException(Exception):
+class BettercapConnectionError(Exception):
+    pass
+class BettercapError(Exception):
     pass

@@ -47,7 +47,7 @@ def pwnagotchi_cli():
                 plugins.on('internet_available', agent)
 
     def do_auto_mode(agent: Agent):
-        from pwnagotchi.agent import BettercapException
+        from pwnagotchi.agent import BettercapConnectionError
 
         logging.info("entering auto mode ...")
 
@@ -97,9 +97,10 @@ def pwnagotchi_cli():
 
                 if grid.is_connected():
                     plugins.on('internet_available', agent)
-                    
-            except BettercapException as e:
-                logging.exception("Unrecovered bettercap exception (%s)", e)
+
+            except BettercapConnectionError as e:
+                logging.exception(f"Unrecovered bettercap exception: {e}")
+                
                 logging.warning("Attempting to restart bettercap")
                 os.system("service bettercap restart")
                 time.sleep(1)
