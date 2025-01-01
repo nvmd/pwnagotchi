@@ -12,13 +12,12 @@ logger = logging.getLogger(__name__)
 def load(config, agent, epoch, from_disk=True):
     config = config['ai']
 
-    try:
-        begin = time.time()
+    begin = time.time()
 
     logger.info("bootstrapping dependencies ...")
 
-        start = time.time()
-        SB_BACKEND = "stable_baselines3"
+    start = time.time()
+    SB_BACKEND = "stable_baselines3"
 
     from stable_baselines3 import A2C
     logger.debug("A2C imported in %.2fs" % (time.time() - start))
@@ -42,8 +41,8 @@ def load(config, agent, epoch, from_disk=True):
     import pwnagotchi.ai.gym as wrappers
     logger.debug("gym wrapper imported in %.2fs" % (time.time() - start))
 
-        env = wrappers.Environment(agent, epoch)
-        env = DummyVecEnv([lambda: env])
+    env = wrappers.Environment(agent, epoch)
+    env = DummyVecEnv([lambda: env])
 
     logger.info("creating model ...")
 
@@ -63,14 +62,4 @@ def load(config, agent, epoch, from_disk=True):
 
     logger.debug("total loading time is %.2fs" % (time.time() - begin))
 
-        return a2c
-    except Exception as e:
-        logger.info("[AI] Error while starting AI")
-        logger.debug("[AI] error while starting AI (%s)", e)
-        logger.info("[AI] Deleting brain and restarting.")
-        os.system("rm /root/brain.nn")
-        # rely on systemd to restart us according to restart policy
-        sys.exit(1)
-
-    logging.warning("[AI] AI not loaded!")
-    return False
+    return a2c

@@ -173,12 +173,11 @@ class AsyncTrainer(object):
         plugins.on('ai_training_end', self)
 
     def _ai_worker(self):
-        self._model = ai.load(self._config, self, self._epoch)
-
-        if self._model:
-            self.on_ai_ready()
-
+        try:
+            self._model = ai.load(self._config, self, self._epoch)
             epochs_per_episode = self._config['ai']['epochs_per_episode']
+
+            self.on_ai_ready()
 
             obs = None
             while True:
