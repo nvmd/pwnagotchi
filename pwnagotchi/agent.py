@@ -133,7 +133,11 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 time.sleep(1)
 
     def start(self):
-        self.start_ai()
+        if self._config['ai']['enabled']:
+            self.start_ai()
+        else:
+            logging.info("ai disabled")
+
         self._wait_bettercap()
         self.setup_events()
         self.set_starting()

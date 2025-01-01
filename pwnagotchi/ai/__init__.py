@@ -9,9 +9,6 @@ import sys
 
 def load(config, agent, epoch, from_disk=True):
     config = config['ai']
-    if not config['enabled']:
-        logging.info("ai disabled")
-        return False
 
     try:
         begin = time.time()
