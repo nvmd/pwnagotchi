@@ -113,7 +113,7 @@ class View(object):
         self._state.has_element(key)
 
     def add_element(self, key, elem):
-        if self.invert is 1 and elem.color:
+        if self.invert == 1 and elem.color:
             if elem.color == 0xff:
                 elem.color = 0x00
             elif elem.color == 0x00:
