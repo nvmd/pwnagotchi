@@ -1,4 +1,6 @@
-def display_for(config):
+from pwnagotchi.ui.hw.base import DisplayImpl
+
+def display_for(config) -> DisplayImpl:
     # config has been normalized already in utils.load_config
     if config['ui']['display']['type'] == 'inky':
         from pwnagotchi.ui.hw.inky import Inky

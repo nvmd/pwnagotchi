@@ -8,6 +8,7 @@ from threading import Lock
 from PIL import ImageDraw
 
 import pwnagotchi
+from pwnagotchi.ui.hw.base import DisplayImpl
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.faces as faces
 import pwnagotchi.ui.fonts as fonts
@@ -23,7 +24,7 @@ BLACK = 0xFF  # black is actually white on jays image
 
 
 class View(object):
-    def __init__(self, config, impl, state=None):
+    def __init__(self, config, impl: DisplayImpl, state=None):
         global ROOT, BLACK, WHITE
 
         self.invert = 0
