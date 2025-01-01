@@ -35,8 +35,10 @@ class WaveshareV4(DisplayImpl):
         logging.info(f"{self.name} display: initializing")
         from pwnagotchi.ui.hw.libs.waveshare.epaper.v2in13_V4.epd2in13_V4 import EPD
         self._display = EPD()
-        self._display.init()
-        self._display.Clear(0xFF)
+        if self._display.init() != 0:
+            raise Exception("EPD init failed")
+        self.clear()
+
         try:
             new_image = Image.new('1', ( self._display.height,  self._display.width), 255)
             buf = self._display.getbuffer(new_image)
