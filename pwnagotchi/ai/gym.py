@@ -8,6 +8,8 @@ import pwnagotchi.ai.reward as reward
 from pwnagotchi.ai.parameter import Parameter
 
 
+logger = logging.getLogger(__name__)
+
 class Environment(gym.Env):
     render_mode = "human"
     metadata = {'render_modes': ['human']}
@@ -85,7 +87,7 @@ class Environment(gym.Env):
         return params
 
     def _next_epoch(self):
-        logging.debug("[ai] waiting for epoch to finish ...")
+        logger.debug("Waiting for epoch to finish ...")
         return self._epoch.wait_for_epoch_data()
 
     def _apply_policy(self, policy):
@@ -112,7 +114,7 @@ class Environment(gym.Env):
         return self.last['state_v'], self.last['reward'], not self._agent.is_training(), False, {}
 
     def reset(self, *, seed=None, options=None):
-        logging.info("[ai] resetting environment ...")
+        logger.info("resetting environment ...")
         super().reset(seed=seed, options=options)    # https://github.com/DLR-RM/stable-baselines3/issues/1609#issuecomment-1694411306
         self._epoch_num = 0
         state = self._next_epoch()
@@ -123,7 +125,7 @@ class Environment(gym.Env):
     def _render_histogram(self, hist):
         for ch in range(featurizer.histogram_size):
             if hist[ch]:
-                logging.info("      CH %d: %s" % (ch + 1, hist[ch]))
+                logger.info("   CH %d: %s" % (ch + 1, hist[ch]))
 
     def render(self, mode='human', close=False, force=False):
         # when using a vectorialized environment, render gets called twice
@@ -136,14 +138,14 @@ class Environment(gym.Env):
 
         self._last_render = self._epoch_num
 
-        logging.info("[AI] --- training epoch %d/%d ---" % (self._epoch_num, self._agent.training_epochs()))
-        logging.info("[AI] REWARD: %f" % self.last['reward'])
+        logger.info("--- training epoch %d/%d ---" % (self._epoch_num, self._agent.training_epochs()))
+        logger.info("REWARD: %f" % self.last['reward'])
 
-        logging.debug(
-            "[AI] policy: %s" % ', '.join("%s:%s" % (name, value) for name, value in self.last['params'].items()))
+        logger.debug(
+            "policy: %s" % ', '.join("%s:%s" % (name, value) for name, value in self.last['params'].items()))
 
-        logging.info("[AI] observation:")
+        logger.info("observation:")
         for name, value in self.last['state'].items():
             if 'histogram' in name:
-                logging.info("    %s" % name.replace('_histogram', ''))
+                logger.info(" %s" % name.replace('_histogram', ''))
                 self._render_histogram(value)
