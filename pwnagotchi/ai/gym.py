@@ -110,8 +110,13 @@ class Environment(gym.Env):
         self.last['state_v'] = featurizer.featurize(state, self._epoch_num)
 
         self._agent.on_ai_step()
-
-        return self.last['state_v'], self.last['reward'], not self._agent.is_training(), False, {}
+        
+        observation = self.last['state_v']
+        reward = self.last['reward']
+        terminated = not self._agent.is_training()
+        truncated = False
+        info = {}
+        return observation, reward, terminated, truncated, info
 
     def reset(self, *, seed=None, options=None):
         logger.info("resetting environment ...")
@@ -120,7 +125,10 @@ class Environment(gym.Env):
         state = self._next_epoch()
         self.last['state'] = state
         self.last['state_v'] = featurizer.featurize(state, 1)
-        return self.last['state_v'], {}
+
+        observation = self.last['state_v']
+        info = {}
+        return observation, info
 
     def _render_histogram(self, hist):
         for ch in range(featurizer.histogram_size):
