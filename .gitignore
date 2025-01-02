@@ -2,4 +2,8 @@
 .vscode
 .direnv
 .DS_Store
+.venv
 *.pyc
+*.whl
+*.eggs
+*.egg-info
