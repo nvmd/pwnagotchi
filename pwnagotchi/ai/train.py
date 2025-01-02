@@ -129,10 +129,6 @@ class AsyncTrainer(object):
 
         self._stats.on_epoch(self._epoch.data(), self._is_training)
 
-    def on_ai_training_step(self, _locals, _globals):
-        self._model.env.render()
-        plugins.on('ai_training_step', self, _locals, _globals)
-
     def on_ai_policy(self, new_params):
         plugins.on('ai_policy', self, new_params)
         logger.info("setting new policy:")
@@ -164,10 +160,19 @@ class AsyncTrainer(object):
         plugins.on('ai_worst_reward', self, r)
 
     def on_ai_training_start(self, for_epochs):
-        logger.info("learning for %d epochs ..." % for_epochs)
+        logger.warning("training for %d epochs ..." % for_epochs)
         self._view.set("mode", " AI*")
         plugins.on('ai_training_start', self, for_epochs)
-        
+
+    def on_ai_training_step(self, _locals, _globals):
+        self._model.env.render()
+        plugins.on('ai_training_step', self, _locals, _globals)
+        # Functional callbacks are converted into ConvertCallback internally
+        # With the function being treated as an "_on_step" callback
+        # * called by the model after each call to `env.step()`
+        # * training will abort early if callback returns False
+        return True
+
     def on_ai_training_end(self):
         self._view.set("mode", "  AI")
         plugins.on('ai_training_end', self)
