@@ -196,7 +196,11 @@ class AsyncTrainer(object):
                             if os.path.isfile(self._nn_path):
                                 back = "%s.bak" % self._nn_path
                                 os.replace(self._nn_path, back)
-                            self._model.learn(total_timesteps=epochs_per_episode, callback=self.on_ai_training_step)
+
+                            start = time.time()
+                            self._model.learn(total_timesteps=epochs_per_episode,
+                                              callback=self.on_ai_training_step)
+                            logger.info("learning episode took %.2fs" % (time.time() - start))
                         except Exception as e:
                             logger.exception("error while training (%s)", e)
                         finally:
@@ -211,7 +215,10 @@ class AsyncTrainer(object):
                         obs = self._model.env.reset()
 
                     # run the inference
+                    start = time.time()
                     action, _ = self._model.predict(obs)
+                    logger.info("inference took %.2fs" % (time.time() - start))
+
                     # save the observation for the next inference
                     # one return value less than with gym api
                     # https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecenv-api-vs-gym-api
