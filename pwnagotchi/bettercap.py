@@ -10,6 +10,7 @@ from requests.packages.urllib3.util.retry import Retry
 
 import pwnagotchi
 
+logger = logging.getLogger(__name__)
 
 ping_timeout = 180
 ping_interval = 15
@@ -28,11 +29,11 @@ def decode(r, verbose_errors=True):
         return r.json()
     except Exception as e:
         if r.status_code == 200:
-            logging.error("error while decoding json: error='%s' resp='%s'" % (e, r.text))
+            logger.error("error while decoding json: error='%s' resp='%s'" % (e, r.text))
         else:
             err = "error %d: %s" % (r.status_code, r.text.strip())
             if verbose_errors:
-                logging.info(err)
+                logger.info(err)
             raise BettercapError(err)
         return r.text
 
@@ -71,21 +72,22 @@ class Client(object):
         # do we need this outer loop to manage the initial connection?
         while True:
             try:
-                logging.info("[bettercap] creating new websocket...")
+                logger.debug("creating new websocket...")
                 async for ws in websockets.connect(s, ping_interval=ping_interval, ping_timeout=ping_timeout,
                                                 max_queue=max_queue):
+                    logger.info("connected to websocket")
                     try:
                         async for msg in ws:
                             try:
                                 await consumer(msg)
                             except Exception as ex:
-                                logging.debug("[bettercap] error while parsing event (%s)", ex)
+                                logger.debug("error while parsing event (%s)", ex)
                     except websockets.ConnectionClosedError:
                         continue
             except ConnectionRefusedError:
                 sleep_time = min_sleep + max_sleep*random.random()
-                logging.warning('[bettercap] nobody seems to be listening at the bettercap endpoint...')
-                logging.warning('[bettercap] retrying connection in {} sec'.format(sleep_time))
+                logger.warning('nobody seems to be listening at the bettercap endpoint')
+                logger.warning('retrying connection in {} sec'.format(sleep_time))
                 await asyncio.sleep(sleep_time)
                 continue
             except Exception as e:
