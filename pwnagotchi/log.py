@@ -220,7 +220,7 @@ def setup_logging(args, config):
     filenameDebug = cfg['path-debug']
 
     #global formatter
-    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(threadName)s] : %(message)s")
+    formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(threadName)s] : [%(name)s] %(message)s")
     logger = logging.getLogger()
     
     for handler in logger.handlers:
