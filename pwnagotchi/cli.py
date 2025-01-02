@@ -101,10 +101,15 @@ def pwnagotchi_cli():
             except BettercapConnectionError as e:
                 logging.exception(f"Unrecovered bettercap exception: {e}")
                 
+                # agent._view.sleep(5) # this does time.sleep(5)
+                import pwnagotchi.ui.faces as faces
+                agent._view.update(force=True, new_data={"status": "Restarting bettercap",
+                                                         "face": faces.DEBUG})
                 logging.warning("Attempting to restart bettercap")
+
                 os.system("service bettercap restart")
-                time.sleep(1)
                 # reconfigure bettercap?
+                time.sleep(5)
 
             except Exception as e:
                 if str(e).find("wifi.interface not set") > 0:

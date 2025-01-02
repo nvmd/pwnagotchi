@@ -88,11 +88,11 @@ class Client(object):
                 logging.warning('[bettercap] retrying connection in {} sec'.format(sleep_time))
                 await asyncio.sleep(sleep_time)
                 continue
-            except OSError:
-                logging.warning('connection to the bettercap endpoint failed...')
-                pwnagotchi.restart("AUTO")
-                # os.system("service bettercap restart")
-                # time.sleep(1)
+            except Exception as e:
+                logger.error('connection to the websocket endpoint failed')
+                logger.error('hoping that the error will be detected via `session` fail and bettercap will be restarted')
+                # TODO: recovery procedure.
+                # can't just reraise an exception because we're not in the main thread
 
     def run(self, command, verbose_errors=True):
         try:
