@@ -6,7 +6,8 @@ import numpy as np
 import pwnagotchi.ai.featurizer as featurizer
 import pwnagotchi.ai.reward as reward
 from pwnagotchi.ai.parameter import Parameter
-
+from pwnagotchi.ai.epoch import Epoch
+from pwnagotchi.agent import Agent
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class Environment(gym.Env):
         Parameter('sad_num_epochs', min_value=5, max_value=30),
     ]
 
-    def __init__(self, agent, epoch):
+    def __init__(self, agent: Agent, epoch: Epoch):
         super(Environment, self).__init__()
         self._agent = agent
         self._epoch = epoch
