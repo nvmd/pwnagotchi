@@ -130,20 +130,8 @@ class AsyncTrainer(object):
         self._stats.on_epoch(self._epoch.data(), self._is_training)
 
     def on_ai_policy(self, new_params):
+        self.set_policy(new_params)
         plugins.on('ai_policy', self, new_params)
-        logger.info("setting new policy:")
-        for name, value in new_params.items():
-            if name in self._config['personality']:
-                curr_value = self._config['personality'][name]
-                if curr_value != value:
-                    logger.info("! %s: %s -> %s" % (name, curr_value, value))
-                    self._config['personality'][name] = value
-            else:
-                logger.error("param %s not in personality configuration!" % name)
-
-        self.run('set wifi.ap.ttl %d' % self._config['personality']['ap_ttl'])
-        self.run('set wifi.sta.ttl %d' % self._config['personality']['sta_ttl'])
-        self.run('set wifi.rssi.min %d' % self._config['personality']['min_rssi'])
 
     def on_ai_ready(self):
         self._view.on_ai_ready()

@@ -537,3 +537,23 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         except Exception as e:
             logging.error("Error while setting channel (%s)", e)
             raise e
+
+    def set_policy(self, new_params):
+        """
+        This method is to be called by any policy maker (AI, auto-tune, etc.)
+        to apply the policy
+        """
+        logging.info("setting new policy:")
+        for name, value in new_params.items():
+            if name in self._config['personality']:
+                curr_value = self._config['personality'][name]
+                if curr_value != value:
+                    logging.info("! %s: %s -> %s" % (name, curr_value, value))
+                    self._config['personality'][name] = value
+            else:
+                logging.error("param %s not in personality configuration!" % name)
+
+        # apply to bettercap
+        self.run('set wifi.ap.ttl %d' % self._config['personality']['ap_ttl'])
+        self.run('set wifi.sta.ttl %d' % self._config['personality']['sta_ttl'])
+        self.run('set wifi.rssi.min %d' % self._config['personality']['min_rssi'])
