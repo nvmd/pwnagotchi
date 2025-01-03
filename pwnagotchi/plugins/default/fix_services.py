@@ -102,10 +102,14 @@ class FixServices(plugins.Plugin):
 
             logging.debug("[Fix_Services]**** checking")
             if len(self.pattern.findall(last_lines)) >= 1:
-                subprocess.check_output("monstop", shell=True)
-                subprocess.check_output("monstart", shell=True)
-                display.set('status', 'Wifi channel stuck. Restarting recon.')
+                cmd_output = subprocess.check_output("monstop", shell=True)
+                logging.debug("[Fix_Services monstop]: %s" % repr(cmd_output))
+                cmd_output = subprocess.check_output("monstart", shell=True)
+                logging.debug("[Fix_Services monstart]: %s" % repr(cmd_output))
+
+                display.set('status', 'Monitor interface error. Reloaded kernel modules, restarting.')
                 display.update(force=True)
+                logging.error('[Fix_Services] Monitor interface error. Reloaded kernel modules, restarting.')
                 agent._restart("AUTO")
 
             # Look for pattern 2
@@ -114,7 +118,7 @@ class FixServices(plugins.Plugin):
                 if hasattr(agent, 'view'):
                     display.set('status', 'Wifi channel stuck. Restarting recon.')
                     display.update(force=True)
-                logging.debug('[Fix_Services] Wifi channel stuck. Restarting recon.')
+                logging.error('[Fix_Services] Wifi channel stuck. Restarting recon.')
 
                 try:
                     result = agent.run("wifi.recon off; wifi.recon on")
@@ -193,7 +197,7 @@ class FixServices(plugins.Plugin):
                 except Exception as err:
                     logging.error("[Fix_Services wifi.recon flip] %s" % repr(err))
             else:
-                print("logs look good")
+                logging.debug("logs look good")
 
     def logPrintView(self, level, message, ui=None, displayData=None, force=True):
         try:
