@@ -106,7 +106,7 @@ class FixServices(plugins.Plugin):
                 subprocess.check_output("monstart", shell=True)
                 display.set('status', 'Wifi channel stuck. Restarting recon.')
                 display.update(force=True)
-                pwnagotchi.restart("AUTO")
+                agent._restart("AUTO")
 
             # Look for pattern 2
             elif len(self.pattern2.findall(other_last_lines)) >= 5:
@@ -163,8 +163,8 @@ class FixServices(plugins.Plugin):
                 if hasattr(agent, 'view'):
                     display.set('status', 'Restarting pwnagotchi!')
                     display.update(force=True)
-                os.system("systemctl restart bettercap")
-                pwnagotchi.restart("AUTO")
+                logging.error('[Fix_Services] restarting bettercap and pwnagotchi')
+                agent._restart("AUTO")
 
             # Look for pattern 6
             elif len(self.pattern6.findall(other_other_last_lines)) >= 1:
@@ -172,8 +172,8 @@ class FixServices(plugins.Plugin):
                 if hasattr(agent, 'view'):
                     display.set('status', 'Restarting pwnagotchi!')
                     display.update(force=True)
-                os.system("systemctl restart bettercap")
-                pwnagotchi.restart("AUTO")
+                logging.error('[Fix_Services] restarting bettercap and pwnagotchi')
+                agent._restart("AUTO")
 
             # Look for pattern 7
             elif len(self.pattern7.findall(other_other_last_lines)) >= 1:
@@ -338,7 +338,7 @@ class FixServices(plugins.Plugin):
                         print(" wlan0mon didn't make it. trying again")
                 else:
                     logging.debug("[Fix_Services] wlan0mon loading failed, no choice but to reboot ..")
-                    pwnagotchi.reboot()
+                    agent._reboot()
 
             # exited the loop, so hopefully it loaded
             if tries < 3:
@@ -373,7 +373,7 @@ class FixServices(plugins.Plugin):
 
             except Exception as err:
                 logging.error("[Fix_Services wifi.recon on] %s" % repr(err))
-                pwnagotchi.reboot()
+                agent._reboot()
 
     # called to setup the ui elements
     def on_ui_setup(self, ui):
