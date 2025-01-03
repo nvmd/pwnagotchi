@@ -5,6 +5,8 @@ from pwnagotchi.ui.hw.base import DisplayImpl
 
 from PIL import Image,ImageDraw,ImageFont
 
+logger = logging.getLogger(__name__)
+
 class WaveshareV4(DisplayImpl):
     def __init__(self, config):
         super(WaveshareV4, self).__init__(config, 'waveshare2in13v4')
@@ -32,7 +34,8 @@ class WaveshareV4(DisplayImpl):
         return self._layout
 
     def initialize(self):
-        logging.info(f"{self.name} display: initializing")
+        logger.info("initializing display")
+
         from pwnagotchi.ui.hw.libs.waveshare.epaper.v2in13_V4.epd2in13_V4 import EPD
         self._display = EPD()
         if self._display.init() != 0:
@@ -44,9 +47,9 @@ class WaveshareV4(DisplayImpl):
             buf = self._display.getbuffer(new_image)
             self._display.displayPartBaseImage(buf)
         except Exception as e: 
-            logging.info(e)
+            logger.info(e)
 
-        logging.info(f"{self.name} display: initialized")
+        logger.info("display initialized")
 
     def render(self, canvas):
         buf = self._display.getbuffer(canvas)
