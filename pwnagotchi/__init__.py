@@ -136,7 +136,10 @@ def restart(mode):
 
     os.system("service bettercap restart")
     time.sleep(1)
-    os.system("service pwnagotchi restart")
+    # rely on a service manager (like systemd)
+    # to restart us according to restart policy
+    logging.critical("Exiting to be restarted...")
+    os._exit(2) # kill all threads
 
 
 def reboot(mode=None):
