@@ -74,22 +74,12 @@ class FixServices(plugins.Plugin):
         if re.search('wifi error while hopping to channel', event['data']['Message']):
             logger.debug("SYSLOG MATCH: %s" % event['data']['Message'])
             logger.debug("**** restarting wifi.recon")
-            try:
-                result = agent.run("wifi.recon off; wifi.recon on")
-                if result["success"]:
-                    logger.debug("wifi.recon flip: success!")
-                    if hasattr(agent, 'view'):
-                        display = agent.view()
-                        if display:
-                            display.update(force=True, new_data={"status": "Wifi recon flipped!", "face": faces.COOL})
-                    else:
-                        print("Wifi recon flipped")
-                else:
-                    logger.warning("wifi.recon flip: FAILED: %s" % repr(result))
-                    self._tryTurningItOffAndOnAgain(agent)
-            except Exception as err:
-                logger.error("SYSLOG wifi.recon flip fail: %s" % err)
-                self._tryTurningItOffAndOnAgain(agent)
+
+            display = self._get_view_if_available(agent)
+
+            self._remedy_bettercap_recon_off_on(agent, display,
+                                                self._tryTurningItOffAndOnAgain,
+                                                self._tryTurningItOffAndOnAgain)
 
     def on_epoch(self, agent: Agent, epoch: Epoch, epoch_data):
         last_lines = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10', '-k'],
@@ -103,10 +93,8 @@ class FixServices(plugins.Plugin):
         logger.debug("**** epoch")
         if time.time() - self.LASTTRY > 180:
             # get last 10 lines
-            if hasattr(agent, 'view'):
-                display = agent.view()
-            else:
-                display = None
+
+            display = self._get_view_if_available(agent)
 
             logger.debug("**** checking")
             if len(self.pattern.findall(last_lines)) >= 1:
@@ -183,7 +171,7 @@ class FixServices(plugins.Plugin):
                                     True)
         agent._restart("AUTO")
 
-    def _remedy_bettercap_recon_off_on(self, agent: Client, display: View):
+    def _remedy_bettercap_recon_off_on(self, agent: Client, display: View, fail_callback=None, exc_callback=None):
         try:
             result = agent.run("wifi.recon off; wifi.recon on")
             if result["success"]:
@@ -194,9 +182,12 @@ class FixServices(plugins.Plugin):
                                     True)
             else:
                 logger.warning("wifi.recon flip: FAILED: %s" % repr(result))
-
+                if fail_callback != None:
+                    fail_callback(agent)
         except Exception as err:
-            logger.error("[wifi.recon flip] %s" % repr(err))
+            logger.error("[wifi.recon flip fail] %s" % repr(err))
+            if exc_callback != None:
+                exc_callback(agent)
 
     def logPrintView(self, level: str, message, ui=None, displayData=None, force=True):
         try:
@@ -213,6 +204,12 @@ class FixServices(plugins.Plugin):
                 print("[%s] %s" % (level, message))
         except Exception as err:
             logger.error("[logPrintView] ERROR %s" % repr(err))
+            
+    def _get_view_if_available(self, agent):
+        display = None
+        if hasattr(agent, 'view'):
+            display = agent.view()
+        return display
 
     def _tryTurningItOffAndOnAgain(self, connection):
         # avoid overlapping restarts, but allow it if it's been a while
@@ -223,13 +220,10 @@ class FixServices(plugins.Plugin):
             self.isReloadingMon = True
             self.LASTTRY = time.time()
 
-            if hasattr(connection, 'view'):
-                display = connection.view()
-                if display:
-                    display.update(force=True, new_data={"status": "I'm blind! Try turning it off and on again",
-                                                         "face": faces.BORED})
-            else:
-                display = None
+            display = self._get_view_if_available(connection)
+            if display:
+                display.update(force=True, new_data={"status": "I'm blind! Try turning it off and on again",
+                                                        "face": faces.BORED})
 
             # main divergence from WATCHDOG starts here
             #
