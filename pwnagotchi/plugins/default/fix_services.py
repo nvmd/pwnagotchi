@@ -72,7 +72,7 @@ class FixServices(plugins.Plugin):
     # apparently this only gets messages from bettercap going to syslog, not from syslog
     def on_bcap_sys_log(self, agent: Agent, event):
         if re.search('wifi error while hopping to channel', event['data']['Message']):
-            logger.debug("SYSLOG MATCH: %s" % event['data']['Message'])
+            logger.debug("bettercap sys.log MATCH: %s" % event['data']['Message'])
             logger.debug("**** restarting wifi.recon")
 
             display = self._get_view_if_available(agent)
@@ -82,11 +82,11 @@ class FixServices(plugins.Plugin):
                                                 self._tryTurningItOffAndOnAgain)
 
     def on_epoch(self, agent: Agent, epoch: Epoch, epoch_data):
-        last_lines = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10', '-k'],
+        kernel_log = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10', '-k'],
                                                                  stdout=subprocess.PIPE).stdout))[-10:])
-        other_last_lines = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10'],
+        sys_log = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10'],
                                                                        stdout=subprocess.PIPE).stdout))[-10:])
-        other_other_last_lines = ''.join(
+        pwnagotchi_log = ''.join(
             list(TextIOWrapper(subprocess.Popen(['tail', '-n10', '/etc/pwnagotchi/log/pwnagotchi.log'],
                                                 stdout=subprocess.PIPE).stdout))[-10:])
         # don't check if we ran a reset recently
@@ -97,7 +97,7 @@ class FixServices(plugins.Plugin):
             display = self._get_view_if_available(agent)
 
             logger.debug("**** checking")
-            if len(self.pattern.findall(last_lines)) >= 1:
+            if len(self.pattern.findall(kernel_log)) >= 1:
                 self.logPrintView("error", "Monitor interface error. Reloading kernel modules, restarting.",
                                     display, {"status": "Monitor interface error. Reloading kernel modules, restarting.",
                                               "face": faces.COOL},
@@ -107,8 +107,8 @@ class FixServices(plugins.Plugin):
                 self._remedy_pwnagotchi_restart(agent, display)
 
             # Look for pattern 2
-            elif len(self.pattern2.findall(other_last_lines)) >= 5:
-                logger.debug("**** Should trigger a reload of the wlan0mon device:\n%s" % last_lines)
+            elif len(self.pattern2.findall(sys_log)) >= 5:
+                logger.debug("**** Should trigger a reload of the wlan0mon device:\n%s" % kernel_log)
                 self.logPrintView("error", "Wifi channel stuck. Restarting recon.",
                                     display, {"status": "Wifi channel stuck. Restarting recon.",
                                               "face": faces.COOL},
@@ -116,7 +116,7 @@ class FixServices(plugins.Plugin):
                 self._remedy_bettercap_recon_off_on(agent, display)
 
             # Look for pattern 3
-            elif len(self.pattern3.findall(other_last_lines)) >= 1:
+            elif len(self.pattern3.findall(sys_log)) >= 1:
                 self.logPrintView("debug", "Firmware has halted or crashed. Restarting wlan0mon.",
                                     display, {"status": "Firmware has halted or crashed. Restarting wlan0mon.",
                                               "face": faces.COOL},
@@ -124,7 +124,7 @@ class FixServices(plugins.Plugin):
                 self._remedy_monstart()
 
             # Look for pattern 4
-            elif len(self.pattern4.findall(other_other_last_lines)) >= 3:
+            elif len(self.pattern4.findall(pwnagotchi_log)) >= 3:
                 self.logPrintView("debug", "wlan0 is down!",
                                   display, {"status": "Restarting wlan0 now!",
                                             "face": faces.COOL},
@@ -132,17 +132,17 @@ class FixServices(plugins.Plugin):
                 self._remedy_monstart()
 
             # Look for pattern 5
-            elif len(self.pattern5.findall(other_other_last_lines)) >= 1:
+            elif len(self.pattern5.findall(pwnagotchi_log)) >= 1:
                 logger.debug("Bettercap has crashed!")
                 self._remedy_pwnagotchi_restart(agent, display)
 
             # Look for pattern 6
-            elif len(self.pattern6.findall(other_other_last_lines)) >= 1:
+            elif len(self.pattern6.findall(pwnagotchi_log)) >= 1:
                 logger.debug("Bettercap has crashed!")
                 self._remedy_pwnagotchi_restart(agent, display)
 
             # Look for pattern 7
-            elif len(self.pattern7.findall(other_other_last_lines)) >= 1:
+            elif len(self.pattern7.findall(pwnagotchi_log)) >= 1:
                 logger.debug("Monitor mode failed!")
                 self._remedy_bettercap_recon_off_on(agent, display)
             else:
