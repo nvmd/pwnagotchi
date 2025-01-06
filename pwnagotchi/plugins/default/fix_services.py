@@ -8,6 +8,9 @@ import os
 
 import pwnagotchi
 from pwnagotchi import plugins
+from pwnagotchi.agent import Agent
+from pwnagotchi.ai.epoch import Epoch
+from pwnagotchi.ui.view import View
 
 import pwnagotchi.ui.faces as faces
 from pwnagotchi.bettercap import Client
@@ -46,7 +49,7 @@ class FixServices(plugins.Plugin):
         """
         logging.info("[Fix_Services] plugin loaded.")
 
-    def on_ready(self, agent):
+    def on_ready(self, agent: Agent):
         last_lines = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10', '-k'],
                                                                  stdout=subprocess.PIPE).stdout))[-10:])
         try:
@@ -65,7 +68,7 @@ class FixServices(plugins.Plugin):
     # bettercap sys_log event
     # search syslog events for the brcmf channel fail, and reset when it shows up
     # apparently this only gets messages from bettercap going to syslog, not from syslog
-    def on_bcap_sys_log(self, agent, event):
+    def on_bcap_sys_log(self, agent: Agent, event):
         if re.search('wifi error while hopping to channel', event['data']['Message']):
             logging.debug("[Fix_Services]SYSLOG MATCH: %s" % event['data']['Message'])
             logging.debug("[Fix_Services]**** restarting wifi.recon")
@@ -86,7 +89,7 @@ class FixServices(plugins.Plugin):
                 logging.error("[Fix_Services]SYSLOG wifi.recon flip fail: %s" % err)
                 self._tryTurningItOffAndOnAgain(agent)
 
-    def on_epoch(self, agent, epoch, epoch_data):
+    def on_epoch(self, agent: Agent, epoch: Epoch, epoch_data):
         last_lines = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10', '-k'],
                                                                  stdout=subprocess.PIPE).stdout))[-10:])
         other_last_lines = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10'],
@@ -98,106 +101,100 @@ class FixServices(plugins.Plugin):
         logging.debug("[Fix_Services]**** epoch")
         if time.time() - self.LASTTRY > 180:
             # get last 10 lines
-            display = agent.view()
+            if hasattr(agent, 'view'):
+                display = agent.view()
+            else:
+                display = None
 
             logging.debug("[Fix_Services]**** checking")
             if len(self.pattern.findall(last_lines)) >= 1:
-                cmd_output = subprocess.check_output("monstop", shell=True)
-                logging.debug("[Fix_Services monstop]: %s" % repr(cmd_output))
-                cmd_output = subprocess.check_output("monstart", shell=True)
-                logging.debug("[Fix_Services monstart]: %s" % repr(cmd_output))
-
-                display.set('status', 'Monitor interface error. Reloaded kernel modules, restarting.')
-                display.update(force=True)
-                logging.error('[Fix_Services] Monitor interface error. Reloaded kernel modules, restarting.')
-                agent._restart("AUTO")
+                self.logPrintView("error", "Monitor interface error. Reloading kernel modules, restarting.",
+                                    display, {"status": "Monitor interface error. Reloading kernel modules, restarting.",
+                                              "face": faces.COOL},
+                                    True)
+                self._remedy_monstop(display)
+                self._remedy_monstart()
+                self._remedy_pwnagotchi_restart(agent, display)
 
             # Look for pattern 2
             elif len(self.pattern2.findall(other_last_lines)) >= 5:
                 logging.debug("[Fix_Services]**** Should trigger a reload of the wlan0mon device:\n%s" % last_lines)
-                if hasattr(agent, 'view'):
-                    display.set('status', 'Wifi channel stuck. Restarting recon.')
-                    display.update(force=True)
-                logging.error('[Fix_Services] Wifi channel stuck. Restarting recon.')
-
-                try:
-                    result = agent.run("wifi.recon off; wifi.recon on")
-                    if result["success"]:
-                        logging.debug("[Fix_Services] wifi.recon flip: success!")
-                        if display:
-                            display.update(force=True, new_data={"status": "Wifi recon flipped!",
-                                                                 "face": faces.COOL})
-                        else:
-                            print("Wifi recon flipped\nthat was easy!")
-                    else:
-                        logging.warning("[Fix_Services] wifi.recon flip: FAILED: %s" % repr(result))
-
-                except Exception as err:
-                    logging.error("[Fix_Services wifi.recon flip] %s" % repr(err))
+                self.logPrintView("error", "Wifi channel stuck. Restarting recon.",
+                                    display, {"status": "Wifi channel stuck. Restarting recon.",
+                                              "face": faces.COOL},
+                                    True)
+                self._remedy_bettercap_recon_off_on(agent, display)
 
             # Look for pattern 3
             elif len(self.pattern3.findall(other_last_lines)) >= 1:
-                logging.debug("[Fix_Services] Firmware has halted or crashed. Restarting wlan0mon.")
-                if hasattr(agent, 'view'):
-                    display.set('status', 'Firmware has halted or crashed. Restarting wlan0mon.')
-                    display.update(force=True)
-                try:
-                    # Run the monstart command to restart wlan0mon
-                    cmd_output = subprocess.check_output("monstart", shell=True)
-                    logging.debug("[Fix_Services monstart]: %s" % repr(cmd_output))
-                except Exception as err:
-                    logging.error("[Fix_Services monstart]: %s" % repr(err))
+                self.logPrintView("debug", "Firmware has halted or crashed. Restarting wlan0mon.",
+                                    display, {"status": "Firmware has halted or crashed. Restarting wlan0mon.",
+                                              "face": faces.COOL},
+                                    True)
+                self._remedy_monstart()
 
             # Look for pattern 4
             elif len(self.pattern4.findall(other_other_last_lines)) >= 3:
-                logging.debug("[Fix_Services] wlan0 is down!")
-                if hasattr(agent, 'view'):
-                    display.set('status', 'Restarting wlan0 now!')
-                    display.update(force=True)
-                try:
-                    # Run the monstart command to restart wlan0mon
-                    cmd_output = subprocess.check_output("monstart", shell=True)
-                    logging.debug("[Fix_Services monstart]: %s" % repr(cmd_output))
-                except Exception as err:
-                    logging.error("[Fix_Services monstart]: %s" % repr(err))
+                self.logPrintView("debug", "wlan0 is down!",
+                                  display, {"status": "Restarting wlan0 now!",
+                                            "face": faces.COOL},
+                                  True)
+                self._remedy_monstart()
 
             # Look for pattern 5
             elif len(self.pattern5.findall(other_other_last_lines)) >= 1:
                 logging.debug("[Fix_Services] Bettercap has crashed!")
-                if hasattr(agent, 'view'):
-                    display.set('status', 'Restarting pwnagotchi!')
-                    display.update(force=True)
-                logging.error('[Fix_Services] restarting bettercap and pwnagotchi')
-                agent._restart("AUTO")
+                self._remedy_pwnagotchi_restart(agent, display)
 
             # Look for pattern 6
             elif len(self.pattern6.findall(other_other_last_lines)) >= 1:
                 logging.debug("[Fix_Services] Bettercap has crashed!")
-                if hasattr(agent, 'view'):
-                    display.set('status', 'Restarting pwnagotchi!')
-                    display.update(force=True)
-                logging.error('[Fix_Services] restarting bettercap and pwnagotchi')
-                agent._restart("AUTO")
+                self._remedy_pwnagotchi_restart(agent, display)
 
             # Look for pattern 7
             elif len(self.pattern7.findall(other_other_last_lines)) >= 1:
                 logging.debug("[Fix_Services] Monitor mode failed!")
-                try:
-                    result = agent.run("wifi.recon off; wifi.recon on")
-                    if result["success"]:
-                        logging.debug("[Fix_Services] wifi.recon flip: success!")
-                        if display:
-                            display.update(force=True, new_data={"status": "Wifi recon flipped!",
-                                                                 "face": faces.COOL})
-                        else:
-                            print("Wifi recon flipped\nthat was easy!")
-                    else:
-                        logging.warning("[Fix_Services] wifi.recon flip: FAILED: %s" % repr(result))
-
-                except Exception as err:
-                    logging.error("[Fix_Services wifi.recon flip] %s" % repr(err))
+                self._remedy_bettercap_recon_off_on(agent, display)
             else:
                 logging.debug("logs look good")
+
+    def _remedy_monstop(self, display: View):
+        try:
+            cmd_output = subprocess.check_output("monstop", shell=True)
+            self.logPrintView("info", "[Fix_Services] wlan0mon down and deleted: %s" % repr(cmd_output),
+                                display, {"status": "wlan0mon d-d-d-down!", "face": faces.BORED})
+        except Exception as nope:
+            logging.error("[Fix_Services delete wlan0mon] %s" % repr(nope))
+
+    def _remedy_monstart(self):
+        try:
+            # Run the monstart command to restart wlan0mon
+            cmd_output = subprocess.check_output("monstart", shell=True)
+            logging.debug("[Fix_Services monstart]: %s" % repr(cmd_output))
+        except Exception as err:
+            logging.error("[Fix_Services monstart]: %s" % repr(err))
+
+    def _remedy_pwnagotchi_restart(self, agent: Agent, display: View):
+        self.logPrintView("error", "restarting bettercap and pwnagotchi",
+                                    display, {"status": "Restarting pwnagotchi!",
+                                              "face": faces.COOL},
+                                    True)
+        agent._restart("AUTO")
+
+    def _remedy_bettercap_recon_off_on(self, agent: Client, display: View):
+        try:
+            result = agent.run("wifi.recon off; wifi.recon on")
+            if result["success"]:
+                logging.debug("[Fix_Services] wifi.recon flip: success!")
+                self.logPrintView("debug", "wifi.recon flip: success!",
+                                    display, {"status": "Wifi recon flipped!",
+                                              "face": faces.COOL},
+                                    True)
+            else:
+                logging.warning("[Fix_Services] wifi.recon flip: FAILED: %s" % repr(result))
+
+        except Exception as err:
+            logging.error("[Fix_Services wifi.recon flip] %s" % repr(err))
 
     def logPrintView(self, level, message, ui=None, displayData=None, force=True):
         try:
@@ -273,13 +270,7 @@ class FixServices(plugins.Plugin):
 
             logging.debug("[Fix_Services] recon paused. Now trying wlan0mon reload")
 
-            try:
-                cmd_output = subprocess.check_output("monstop", shell=True)
-                self.logPrintView("info", "[Fix_Services] wlan0mon down and deleted: %s" % cmd_output,
-                                  display, {"status": "wlan0mon d-d-d-down!", "face": faces.BORED})
-            except Exception as nope:
-                logging.error("[Fix_Services delete wlan0mon] %s" % nope)
-                pass
+            self._remedy_monstop(display)
 
             logging.debug("[Fix_Services] Now trying modprobe -r")
 
