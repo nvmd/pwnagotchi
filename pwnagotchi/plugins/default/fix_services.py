@@ -333,12 +333,10 @@ class FixServices(plugins.Plugin):
 
             # exited the loop, so hopefully it loaded
             if tries < 3:
-                if display:
-                    display.update(force=True, new_data={"status": "And back on again...",
-                                                         "face": faces.INTENSE})
-                else:
-                    print("And back on again...")
-                logger.debug("wlan0mon back up")
+                self.logPrintView("debug", "wlan0mon back up",
+                                  display, {"status": "And back on again...",
+                                            "face": faces.INTENSE},
+                                  True)
             else:
                 self.LASTTRY = time.time()
 
@@ -350,12 +348,10 @@ class FixServices(plugins.Plugin):
                 result = connection.run("wifi.clear; wifi.recon on")
 
                 if "success" in result:  # and result["success"] is True:
-                    if display:
-                        display.update(force=True, new_data={"status": "I can see again! (probably)",
-                                                             "face": faces.HAPPY})
-                    else:
-                        print("I can see again")
-                    logger.debug("wifi.recon on")
+                    self.logPrintView("debug", "wifi.recon on",
+                                      display, {"status": "I can see again! (probably)",
+                                                "face": faces.HAPPY},
+                                      True)
                     self.LASTTRY = time.time() + 120  # 2-minute pause until next time.
                 else:
                     logger.error("wifi.recon did not start up")
