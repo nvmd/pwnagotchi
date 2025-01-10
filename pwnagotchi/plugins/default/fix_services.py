@@ -3,7 +3,6 @@ import re
 import subprocess
 import time
 import random
-from io import TextIOWrapper
 import os
 
 import pwnagotchi
@@ -52,8 +51,9 @@ class FixServices(plugins.Plugin):
         logger.info("plugin loaded.")
 
     def on_ready(self, agent: Agent):
-        last_lines = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10', '-k'],
-                                                                 stdout=subprocess.PIPE).stdout))[-10:])
+        last_lines = ''.join(list(subprocess.Popen(['journalctl', '-n10', '-k'],
+                                                   stdout=subprocess.PIPE).stdout,
+                                  text=True)[-10:])
         try:
             cmd_output = subprocess.check_output("ip link show wlan0mon", shell=True)
             logger.debug("[ip link show wlan0mon]: %s" % repr(cmd_output))
@@ -82,13 +82,16 @@ class FixServices(plugins.Plugin):
                                                 self._tryTurningItOffAndOnAgain)
 
     def on_epoch(self, agent: Agent, epoch: Epoch, epoch_data):
-        kernel_log = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10', '-k'],
-                                                                 stdout=subprocess.PIPE).stdout))[-10:])
-        sys_log = ''.join(list(TextIOWrapper(subprocess.Popen(['journalctl', '-n10'],
-                                                                       stdout=subprocess.PIPE).stdout))[-10:])
+        kernel_log = ''.join(list(subprocess.Popen(['journalctl', '-n10', '-k'],
+                                                   stdout=subprocess.PIPE).stdout,
+                                  text=True)[-10:])
+        sys_log = ''.join(list(subprocess.Popen(['journalctl', '-n10'],
+                                                stdout=subprocess.PIPE).stdout,
+                               text=True)[-10:])
         pwnagotchi_log = ''.join(
-            list(TextIOWrapper(subprocess.Popen(['tail', '-n10', '/etc/pwnagotchi/log/pwnagotchi.log'],
-                                                stdout=subprocess.PIPE).stdout))[-10:])
+            list(subprocess.Popen(['tail', '-n10', '/etc/pwnagotchi/log/pwnagotchi.log'],
+                                  stdout=subprocess.PIPE).stdout,
+                 text=True)[-10:])
         # don't check if we ran a reset recently
         logger.debug("**** epoch")
         if time.time() - self.LASTTRY > 180:
