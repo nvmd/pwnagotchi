@@ -667,11 +667,11 @@ def extract_from_pcap(path, fields):
 
 
 class StatusFile(object):
-    def __init__(self, path, data_format='raw'):
+    def __init__(self, path, data_format='raw', init_data=None):
         self._path = path
         self._updated = None
         self._format = data_format
-        self.data = None
+        self.data = init_data
 
         if os.path.exists(path):
             self._updated = datetime.fromtimestamp(os.path.getmtime(path))
