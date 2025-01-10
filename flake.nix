@@ -13,6 +13,7 @@
       forPython = pkgs.python311;
       pythonWithPackages = forPython.withPackages(ps: with ps; [
             pip
+            pytest
 
             dbus-python
             file-read-backwards
@@ -26,6 +27,7 @@
             pycryptodome
             pydrive2
             python-dateutil
+            # python-prctl
             pyyaml # PyYAML
             requests
             # rpi_hardware_pwm  # https://pypi.org/project/rpi-hardware-pwm/  # macos!
