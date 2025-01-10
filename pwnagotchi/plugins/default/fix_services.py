@@ -10,6 +10,7 @@ from pwnagotchi import plugins
 from pwnagotchi.agent import Agent
 from pwnagotchi.ai.epoch import Epoch
 from pwnagotchi.ui.view import View
+from pwnagotchi.utils import StatusFile
 
 import pwnagotchi.ui.faces as faces
 from pwnagotchi.bettercap import Client
@@ -43,6 +44,8 @@ class FixServices(plugins.Plugin):
         self.isReloadingMon = False
         self.connection = None
         self.LASTTRY = 0
+        self.state = StatusFile('/etc/pwnagotchi/fix_services-state.json',
+                                data_format='json', init_data=dict())
 
     def on_loaded(self):
         """
@@ -52,8 +55,7 @@ class FixServices(plugins.Plugin):
 
     def on_ready(self, agent: Agent):
         last_lines = ''.join(list(subprocess.Popen(['journalctl', '-n10', '-k'],
-                                                   stdout=subprocess.PIPE).stdout,
-                                  text=True)[-10:])
+                                                   stdout=subprocess.PIPE, text=True).stdout)[-10:])
         try:
             cmd_output = subprocess.check_output("ip link show wlan0mon", shell=True)
             logger.debug("[ip link show wlan0mon]: %s" % repr(cmd_output))
@@ -81,26 +83,58 @@ class FixServices(plugins.Plugin):
                                                 self._tryTurningItOffAndOnAgain,
                                                 self._tryTurningItOffAndOnAgain)
 
+    def _find_in_logs(self, name, log_lines, patterns):
+        # traverse log lines starting with the newest
+        lines_to_check = log_lines[::-1]
+        
+        field_name = f'{name}_last_trigger'
+        last_matched_line = self.state.data_field_or(field_name, None)
+
+        # process only log lines newer than the `last_matched_line`
+        if last_matched_line is not None:
+            try:
+                end_index = lines_to_check.index(last_matched_line)
+                lines_to_check = lines_to_check[:end_index]
+                logger.info(f"({name}) Previous trigger {repr(last_matched_line)} found at index: {end_index}")
+            except ValueError:
+                # last matched line is no longer in the log
+                logger.info(f"({name}) Previous trigger {repr(last_matched_line)} not found in the log")
+                self.state.data[field_name] = None
+                self.state.update(self.state.data)
+
+        for line in lines_to_check:
+            for pattern, handler_callback in patterns:
+                if pattern.search(line):
+
+                    self.state.data[field_name] = line
+                    self.state.update(self.state.data)
+
+                    logger.info(f"({name}) Trigger {repr(line)} found, new state: {self.state.data}")
+
+                    handler_callback()
+                    return
+
     def on_epoch(self, agent: Agent, epoch: Epoch, epoch_data):
-        kernel_log = ''.join(list(subprocess.Popen(['journalctl', '-n10', '-k'],
-                                                   stdout=subprocess.PIPE).stdout,
-                                  text=True)[-10:])
-        sys_log = ''.join(list(subprocess.Popen(['journalctl', '-n10'],
-                                                stdout=subprocess.PIPE).stdout,
-                               text=True)[-10:])
-        pwnagotchi_log = ''.join(
-            list(subprocess.Popen(['tail', '-n10', '/etc/pwnagotchi/log/pwnagotchi.log'],
-                                  stdout=subprocess.PIPE).stdout,
-                 text=True)[-10:])
         # don't check if we ran a reset recently
         logger.debug("**** epoch")
-        if time.time() - self.LASTTRY > 180:
-            # get last 10 lines
+        if self.isReloadingMon and (time.time() - self.LASTTRY) < 180:
+            logger.debug("Duplicate attempt ignored")
+            return
+        else:
+            # get last 10 log entries
+            kernel_log = list(subprocess.Popen(['journalctl', '-n10', '-k'],
+                                            stdout=subprocess.PIPE, text=True).stdout)[-10:]
+            sys_log = list(subprocess.Popen(['journalctl', '-n10'],
+                                            stdout=subprocess.PIPE, text=True).stdout)[-10:]
+            pwnagotchi_log = list(subprocess.Popen(['tail', '-n10', '/etc/pwnagotchi/log/pwnagotchi.log'],
+                                                stdout=subprocess.PIPE, text=True).stdout)[-10:]
+
 
             display = self._get_view_if_available(agent)
 
             logger.debug("**** checking")
-            if len(self.pattern.findall(kernel_log)) >= 1:
+
+            def mon_interface_error():
                 self.logPrintView("error", "Monitor interface error. Reloading kernel modules, restarting.",
                                     display, {"status": "Monitor interface error. Reloading kernel modules, restarting.",
                                               "face": faces.COOL},
@@ -108,9 +142,8 @@ class FixServices(plugins.Plugin):
                 self._remedy_monstop(display)
                 self._remedy_monstart()
                 self._remedy_pwnagotchi_restart(agent, display)
-
-            # Look for pattern 2
-            elif len(self.pattern2.findall(sys_log)) >= 5:
+                
+            def channel_stuck():
                 logger.debug("**** Should trigger a reload of the wlan0mon device:\n%s" % kernel_log)
                 self.logPrintView("error", "Wifi channel stuck. Restarting recon.",
                                     display, {"status": "Wifi channel stuck. Restarting recon.",
@@ -118,36 +151,42 @@ class FixServices(plugins.Plugin):
                                     True)
                 self._remedy_bettercap_recon_off_on(agent, display)
 
-            # Look for pattern 3
-            elif len(self.pattern3.findall(sys_log)) >= 1:
+            def firmware_crashed():
                 self.logPrintView("debug", "Firmware has halted or crashed. Restarting wlan0mon.",
                                     display, {"status": "Firmware has halted or crashed. Restarting wlan0mon.",
                                               "face": faces.COOL},
                                     True)
                 self._remedy_monstart()
 
-            # Look for pattern 4
-            elif len(self.pattern4.findall(pwnagotchi_log)) >= 3:
+            def mon_interface_down():
                 self.logPrintView("debug", "wlan0 is down!",
                                   display, {"status": "Restarting wlan0 now!",
                                             "face": faces.COOL},
                                   True)
                 self._remedy_monstart()
 
-            # Look for pattern 5
-            elif len(self.pattern5.findall(pwnagotchi_log)) >= 1:
+            def bettercap_crashed():
                 logger.debug("Bettercap has crashed!")
                 self._remedy_pwnagotchi_restart(agent, display)
 
-            # Look for pattern 6
-            elif len(self.pattern6.findall(pwnagotchi_log)) >= 1:
-                logger.debug("Bettercap has crashed!")
-                self._remedy_pwnagotchi_restart(agent, display)
-
-            # Look for pattern 7
-            elif len(self.pattern7.findall(pwnagotchi_log)) >= 1:
+            def mon_mode_failed():
                 logger.debug("Monitor mode failed!")
                 self._remedy_bettercap_recon_off_on(agent, display)
+
+
+            if self._find_in_logs('kernel', kernel_log,
+                                  [(self.pattern, mon_interface_error)]):
+                return
+            elif self._find_in_logs('sys', sys_log,
+                                    [(self.pattern2, channel_stuck),
+                                     (self.pattern3, firmware_crashed)]):
+                return
+            elif self._find_in_logs('pwnagotchi', pwnagotchi_log,
+                                    [(self.pattern4, mon_interface_down),
+                                     (self.pattern5, bettercap_crashed),
+                                     (self.pattern6, bettercap_crashed),
+                                     (self.pattern7, mon_mode_failed)]):
+                return
             else:
                 logger.debug("logs look good")
 
@@ -194,7 +233,7 @@ class FixServices(plugins.Plugin):
 
     def logPrintView(self, level: str, message, ui=None, displayData=None, force=True):
         try:
-            lvl = logger.getLevelNamesMapping.get(level.upper())
+            lvl = logging.getLevelNamesMapping()[level.upper()]
             if lvl is None:
                 lvl = logger.ERROR
             logger.log(lvl, message)
