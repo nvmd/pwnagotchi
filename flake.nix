@@ -10,16 +10,8 @@
 
      flake-utils.lib.eachDefaultSystem (system: let
       pkgs = nixpkgs.legacyPackages.${system};
-    in {
-      devShells.default = pkgs.mkShell {
-        name = "pwnagotchi";
-        nativeBuildInputs = with pkgs; [
-          nil # lsp language server for nix
-          nixpkgs-fmt
-          nix-output-monitor
-          bash-language-server
-          shellcheck
-          (python311.withPackages(ps: with ps; [
+      forPython = pkgs.python311;
+      pythonWithPackages = forPython.withPackages(ps: with ps; [
             pip
 
             dbus-python
@@ -53,8 +45,37 @@
             gym
             # rpi-gpio  # macos!
             # smbus
-          ]))
+          ]);
+    in {
+      devShells.default = pkgs.mkShell {
+        name = "pwnagotchi";
+        nativeBuildInputs = with pkgs; [
+          nil # lsp language server for nix
+          nixpkgs-fmt
+          nix-output-monitor
+          bash-language-server
+          shellcheck
         ];
+        buildInputs = with pkgs; [
+          forPython.pkgs.venvShellHook
+          pythonWithPackages
+          forPython.pkgs.dbus-python
+        ];
+        venvDir = ".venv";
+
+        # These commands are run once after the venv was created
+        postVenvCreation = ''
+          unset SOURCE_DATE_EPOCH
+          # pip install -r requirements.txt
+          pip install --editable .
+        '';
+        # Now we can execute any commands within the virtual environment.
+        # This is optional and can be left out to run pip manually.
+        postShellHook = ''
+          echo running postShellHook
+          # allow pip to install wheels
+          unset SOURCE_DATE_EPOCH
+        '';
       };
     });
 
