@@ -16,7 +16,7 @@ from pwnagotchi.identity import KeyPair
 from pwnagotchi.ui.web.server import Server
 from pwnagotchi.automata import Automata
 from pwnagotchi.log import LastSession
-from pwnagotchi.bettercap import Client
+from pwnagotchi.bettercap import Client, BettercapConnectionError, BettercapError
 from pwnagotchi.mesh.utils import AsyncAdvertiser
 from pwnagotchi.ai.train import AsyncTrainer
 
@@ -70,8 +70,6 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         return self._supported_channels
 
     def setup_events(self):
-        logging.info("connecting to %s ...", self.url)
-
         for tag in self._config['bettercap']['silence']:
             try:
                 self.run('events.ignore %s' % tag, verbose_errors=False)
@@ -131,7 +129,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 _s = self.session()
                 return
             except Exception:
-                logging.info("waiting for bettercap API to be available ...")
+                logging.info("waiting for bettercap API to become available ...")
                 time.sleep(1)
 
     def start(self):
@@ -162,12 +160,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             # Enable channel hopping on all supported channels.
             self.run('wifi.recon.channel clear')
         else:
-            logging.debug("RECON %ds ON CHANNELS %s", recon_time, ','.join(map(str, channels)))
-            try:
-                # Comma separated list of channels to hop on
-                self.run('wifi.recon.channel %s' % ','.join(map(str, channels)))
-            except Exception as e:
-                logging.exception("Error while setting wifi.recon.channels (%s)", e)
+            # Comma separated list of channels to hop on
+            channel_list = ','.join(map(str, channels))
+            logging.debug("RECON %ds ON CHANNELS %s", recon_time, channel_list)
+            self.run('wifi.recon.channel %s' % channel_list)
 
         self.set_conducting_recon(recon_time)
 
@@ -190,7 +186,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                     continue
                 else:
                     aps.append(ap)
+        except BettercapConnectionError as e:
+            raise e
         except Exception as e:
+            # consider exceptions other than from bettercap safe to ignore
             logging.exception("Error while getting access points (%s)", e)
 
         aps.sort(key=lambda ap: ap['channel'])
@@ -389,9 +388,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             try:
                 loop.create_task(self.start_websocket(self._on_event))
                 loop.run_forever()
-                logging.debug("[agent:_event_poller] loop loop loop")
+                logging.info("[agent:_event_poller] loop loop loop")
             except Exception as ex:
-                logging.debug("[agent:_event_poller] Error while polling via websocket (%s)", ex)
+                logging.error("[agent:_event_poller] Error while polling via websocket (%s)", ex)
 
     def start_event_polling(self):
         # start a thread and pass in the mainloop
@@ -461,7 +460,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                              ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], len(ap['clients']), ap['rssi'])
                 self.run('wifi.assoc %s' % ap['mac'])
                 self._epoch.track(assoc=True)
-            except Exception as e:
+            except BettercapError as e:
                 self._on_error(ap['mac'], e)
 
             plugins.on('association', self, ap)
@@ -481,7 +480,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                              ap['rssi'])
                 self.run('wifi.deauth %s' % sta['mac'])
                 self._epoch.track(deauth=True)
-            except Exception as e:
+            except BettercapError as e:
                 self._on_error(sta['mac'], e)
 
             plugins.on('deauthentication', self, ap, sta)
@@ -533,3 +532,4 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         except Exception as e:
             logging.error("Error while setting channel (%s)", e)
+            raise e
