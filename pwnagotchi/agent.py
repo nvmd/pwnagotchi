@@ -429,69 +429,87 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def _should_interact(self, who):
         if self._has_handshake(who):
             return False
-
-        elif who not in self._history:
-            self._history[who] = 1
+        if who not in self._history:
             return True
+        return self._history[who] < self._config['personality']['max_interactions']
+    
+    def _should_assoc(self, who):
+        return self._config['personality']['associate'] and self._should_interact(who)
+    
+    def _should_deauth(self, who):
+        return self._config['personality']['deauth'] and self._should_interact(who)
+    
+    def _throttle_if_needed(self, throttle_type):
+        if throttle_type not in self._config['personality']:
+            logging.warning(f"Unknown throttle_type '{throttle_type}")
+            return 0
 
+        throttle = self._config['personality'][throttle_type]
+        if throttle > 1:
+            # will track sleep time in epoch, we probably don't need that, 
+            # and it'll also call the plugins
+            # self.sleep_for(throttle)
+            # Preserve old semantics for now, just update the view
+            self._view.sleep(throttle)
+        else:
+            time.sleep(throttle)
+            self._view.on_normal()
+        return throttle
+
+    def track_interaction(self, who):
+        if who not in self._history:
+            self._history[who] = 1
         else:
             self._history[who] += 1
 
-        return self._history[who] < self._config['personality']['max_interactions']
-    
-    def _throttle_if_needed(self, throttle_type):
-        if throttle_type in self._config['personality']:
-            throttle = self._config['personality'][throttle_type]
-            if throttle > 1:
-                # will track sleep time in epoch, we probably don't need that, 
-                # and it'll also call the plugins
-                # self.sleep_for(throttle)
-                # Preserve old semantics for now, just update the view
-                self._view.sleep(throttle)
-            else:
-                time.sleep(throttle)
-                self._view.on_normal()
-            return throttle
-        return 0
+    def track_assoc(self, who):
+        self.track_interaction(who)
+        self._epoch.track(assoc=True)
+
+    def track_deauth(self, who):
+        self.track_interaction(who)
+        self._epoch.track(deauth=True)
 
     def associate(self, ap):
         if self.is_stale():
             logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
             raise StaleReconError()
 
-        if self._config['personality']['associate'] and self._should_interact(ap['mac']):
-            self._view.on_assoc(ap)
+        if not self._should_assoc(ap['mac']):
+            return
 
-            try:
-                logging.info("sending association frame to %s (%s %s) on channel %d [%d clients], %d dBm...",
-                             ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], len(ap['clients']), ap['rssi'])
-                self.run('wifi.assoc %s' % ap['mac'])
-                self._epoch.track(assoc=True)
-            except BettercapError as e:
-                self._on_error(ap['mac'], e)
+        self._view.on_assoc(ap)
+        try:
+            logging.info("sending association frame to %s (%s %s) on channel %d [%d clients], %d dBm...",
+                            ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], len(ap['clients']), ap['rssi'])
+            self.run('wifi.assoc %s' % ap['mac'])
+            self.track_assoc(ap['mac'])
+        except BettercapError as e:
+            self._on_error(ap['mac'], e)
 
-            plugins.on('association', self, ap)
-            self._throttle_if_needed('throttle_a')
+        plugins.on('association', self, ap)
+        self._throttle_if_needed('throttle_a')
 
     def deauth(self, ap, sta):
         if self.is_stale():
             logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
             raise StaleReconError()
 
-        if self._config['personality']['deauth'] and self._should_interact(sta['mac']):
-            self._view.on_deauth(sta)
+        if not self._should_deauth(sta['mac']):
+            return
 
-            try:
-                logging.info("deauthing %s (%s) from %s (%s %s) on channel %d, %d dBm ...",
-                             sta['mac'], sta['vendor'], ap['hostname'], ap['mac'], ap['vendor'], ap['channel'],
-                             ap['rssi'])
-                self.run('wifi.deauth %s' % sta['mac'])
-                self._epoch.track(deauth=True)
-            except BettercapError as e:
-                self._on_error(sta['mac'], e)
+        self._view.on_deauth(sta)
+        try:
+            logging.info("deauthing %s (%s) from %s (%s %s) on channel %d, %d dBm ...",
+                            sta['mac'], sta['vendor'], ap['hostname'], ap['mac'], ap['vendor'], ap['channel'],
+                            ap['rssi'])
+            self.run('wifi.deauth %s' % sta['mac'])
+            self.track_deauth(sta['mac'])
+        except BettercapError as e:
+            self._on_error(sta['mac'], e)
 
-            plugins.on('deauthentication', self, ap, sta)
-            self._throttle_if_needed('throttle_d')
+        plugins.on('deauthentication', self, ap, sta)
+        self._throttle_if_needed('throttle_d')
 
     def observe_current_channel(self, verbose=True):
         if self._is_recon_channel_hopping():
