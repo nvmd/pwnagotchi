@@ -184,7 +184,8 @@ ui.web.on_frame = ""
 
 ui.display.enabled = false
 ui.display.rotation = 180
-ui.display.type = "waveshare_4"
+ui.display.type = "dummydisplay"
+# ui.display.type = "waveshare2in13v4"
 
 bettercap.handshakes = "/home/pi/handshakes"
 bettercap.silence = [
