@@ -39,16 +39,14 @@ def decode(r, verbose_errors=True):
 
 
 class Client(object):
-    def __init__(self, hostname='localhost', scheme='http', port=8081, username='user', password='pass'):
-        self.hostname = hostname
-        self.scheme = scheme
-        self.port = port
-        self.username = username
-        self.password = password
+    def __init__(self, hostname='localhost', scheme='http', port=8081,
+                 username='user', password='pass'):
         self.url = "%s://%s:%d/api" % (scheme, hostname, port)
-        self.websocket = "ws://%s:%s@%s:%d/api" % (username, password, hostname, port)
+        self.websocket = "ws://%s:%s@%s:%d/api" % (username, password,
+                                                   hostname, port)
 
-        retry = Retry(total=5, backoff_factor=min_sleep, backoff_max=max_sleep, backoff_jitter=0.5)
+        retry = Retry(total=5, backoff_factor=min_sleep, backoff_max=max_sleep,
+                      backoff_jitter=0.5)
         adapter = HTTPAdapter(max_retries=retry)
 
         self.http = requests.Session()
