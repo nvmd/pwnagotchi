@@ -116,6 +116,13 @@ ai.params.verbose = 1
 personality.advertise = true
 personality.deauth = true
 personality.associate = true
+personality.bond_encounters_factor = 20000
+# Delay after an AP association
+personality.throttle_a = 0.4
+# Delay after a station deauthentication attempt
+personality.throttle_d = 1.9    # increase further to try reducing nexmon crashes
+
+# Parameters below are managed in runtime by "AI" (when used)
 personality.channels = []
 personality.min_rssi = -200
 personality.ap_ttl = 120
@@ -130,14 +137,7 @@ personality.max_misses_for_recon = 5
 personality.excited_num_epochs = 10
 personality.bored_num_epochs = 15
 personality.sad_num_epochs = 25
-personality.bond_encounters_factor = 20000
 
-# Delay after an AP association
-personality.throttle_a = 0.4
-
-# Delay after a station deauthentication attempt
-#personality.throttle_d = 0.9
-personality.throttle_d = 1.9    # increase further to try reducing nexmon crashes
 
 ui.invert = false # false = black background, true = white background
 ui.cursor = true
