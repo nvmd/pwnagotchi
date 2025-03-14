@@ -6,11 +6,8 @@ import hashlib
 import os
 import logging
 
-DefaultPath = "/etc/pwnagotchi/"
-
-
 class KeyPair(object):
-    def __init__(self, path=DefaultPath, view=None):
+    def __init__(self, path, view=None):
         self.path = path
         self.priv_path = os.path.join(path, "id_rsa")
         self.priv_key = None

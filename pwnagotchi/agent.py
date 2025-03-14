@@ -20,7 +20,6 @@ from pwnagotchi.bettercap import Client, BettercapConnectionError, BettercapErro
 from pwnagotchi.mesh.utils import AsyncAdvertiser
 from pwnagotchi.ai.train import AsyncTrainer
 
-RECOVERY_DATA_FILE = '/root/.pwnagotchi-recovery'
 
 class StaleReconError(Exception):
     pass
@@ -36,6 +35,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         Automata.__init__(self, config, view)
         AsyncAdvertiser.__init__(self, config, view, keypair)
         AsyncTrainer.__init__(self, config)
+
+        self.recovery_file = self._config['main']['state-dir'] + "/" + "recovery.json"
 
         self._started_at = time.time()
         self._current_channel = None
@@ -286,8 +287,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         pwnagotchi.restart(mode)
 
     def _save_recovery_data(self):
-        logging.warning("writing recovery data to %s ...", RECOVERY_DATA_FILE)
-        with open(RECOVERY_DATA_FILE, 'w') as fp:
+        logging.info("writing recovery data to %s ...", self.recovery_file)
+        with open(self.recovery_file, 'w') as fp:
             data = {
                 'started_at': self._started_at,
                 'epoch': self._epoch.epoch,
@@ -299,7 +300,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def _load_recovery_data(self, delete=True, no_exceptions=True):
         try:
-            with open(RECOVERY_DATA_FILE, 'rt') as fp:
+            with open(self.recovery_file, 'rt') as fp:
                 data = json.load(fp)
                 logging.info("found recovery data: %s", data)
                 self._started_at = data['started_at']
@@ -309,8 +310,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 self._last_pwnd = data['last_pwnd']
 
                 if delete:
-                    logging.info("deleting %s", RECOVERY_DATA_FILE)
-                    os.unlink(RECOVERY_DATA_FILE)
+                    logging.info("deleting %s", self.recovery_file)
+                    os.unlink(self.recovery_file)
         except:
             if not no_exceptions:
                 raise

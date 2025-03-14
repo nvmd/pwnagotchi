@@ -217,7 +217,7 @@ class AsyncTrainer(object):
         except Exception as e:
             logger.exception(f"Error while starting AI: {e}")
             logger.info("Deleting brain and restarting.")
-            os.system("rm /root/brain.nn")
+            os.system(f"rm {self._nn_path}")
             # rely on systemd to restart us according to restart policy
             logger.critical("Exiting to be restarted...")
             os._exit(2) # kill all threads

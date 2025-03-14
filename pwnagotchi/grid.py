@@ -2,6 +2,7 @@ import subprocess
 import requests
 import json
 import logging
+import os
 
 import pwnagotchi
 
@@ -63,7 +64,7 @@ def closest_peer():
 def update_data(last_session):
     brain = {}
     try:
-        with open('/root/brain.json') as fp:
+        with open(f"{os.path.splitext(pwnagotchi.config['ai']['path'])[0]}.json") as fp:
             brain = json.load(fp)
     except:
         pass

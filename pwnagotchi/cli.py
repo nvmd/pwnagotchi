@@ -341,7 +341,9 @@ def pwnagotchi_cli():
         do_clear(display)
         sys.exit(0)
 
-    agent = Agent(view=display, config=config, keypair=KeyPair(view=display))
+    agent = Agent(view=display, config=config,
+                  keypair=KeyPair(path=config['main']['state-dir'],
+                                  view=display))
 
     def usr1_handler(*unused):
         logging.info('Received USR1 signal. Restart process ...')

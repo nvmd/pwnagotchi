@@ -7,6 +7,7 @@ main.whitelist = [
     "fo:od:ba"
 ]
 main.confd = "/etc/pwnagotchi/conf.d/"
+main.state-dir = "/etc/pwnagotchi/"
 main.custom_plugin_repos = [
     "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
     "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
@@ -28,6 +29,7 @@ main.plugins.bt-tether.phone = "" # android or ios
 main.plugins.bt-tether.ip = "" # 192.168.44.2 android / 172.20.10.2 ios
 
 main.plugins.fix_services.enabled = true
+main.plugins.fix_services.state-dir = "/etc/pwnagotchi/"
 
 main.plugins.gdrivesync.enabled = false
 main.plugins.gdrivesync.backupfiles = ['']

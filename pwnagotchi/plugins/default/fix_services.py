@@ -44,13 +44,14 @@ class FixServices(plugins.Plugin):
         self.isReloadingMon = False
         self.connection = None
         self.LASTTRY = 0
-        self.state = StatusFile('/etc/pwnagotchi/fix_services-state.json',
-                                data_format='json', init_data=dict())
 
     def on_loaded(self):
         """
         Gets called when the plugin gets loaded
         """
+        # self.options isn't yet available in __init__
+        self.state = StatusFile(f"{self.options['state-dir']}/fix_services-state.json",
+                                data_format='json', init_data=dict())
         logger.info("plugin loaded.")
 
     def on_ready(self, agent: Agent):
