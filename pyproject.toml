@@ -22,7 +22,7 @@ authors = [
   {name = "Jayofelony", email = "oudshoorn.jeroen@gmail.com"}
 ]
 maintainers = [
-  {name = "Jayofelony", email = "oudshoorn.jeroen@gmail.com"}
+  
 ]
 description = "(⌐■_■) - Deep Reinforcement Learning instrumenting bettercap for WiFI pwning."
 readme = "README.md"
@@ -40,10 +40,10 @@ version = {attr = "pwnagotchi.__version__"}
 [project.urls]
 Homepage = "https://pwnagotchi.org/"
 Documentation = "https://github.com/jayofelony/pwnagotchi/wiki"
-Repository = "https://github.com/jayofelony/pwnagotchi.git"
-GitHub = "https://github.com/jayofelony/pwnagotchi"
-Issues = "https://github.com/jayofelony/pwnagotchi/issues"
-Download = "https://github.com/jayofelony/pwnagotchi/releases/latest"
+Repository = "https://github.com/nvmd/pwnagotchi.git"
+GitHub = "https://github.com/nvmd/pwnagotchi"
+Issues = "https://github.com/nvmd/pwnagotchi/issues"
+Download = "https://github.com/nvmd/pwnagotchi/releases/latest"
 
 [project.scripts]
 pwnagotchi = "pwnagotchi.cli:pwnagotchi_cli"

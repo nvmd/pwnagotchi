@@ -89,7 +89,7 @@ def update_data(last_session):
         'uname': subprocess.getoutput("uname -a"),
         'brain': brain,
         'version': pwnagotchi.__version__,
-        'build': "Pwnagotchi with AI",
+        'build': "Pwnagotchi with AI (nvmd)",
         'plugins': enabled,
         'language': language,
         'bettercap': subprocess.getoutput("bettercap -version"),
