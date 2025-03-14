@@ -8,8 +8,12 @@ import logging
 
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ai as ai
+import pwnagotchi.ai.featurizer as featurizer
 
 logger = logging.getLogger(__name__)
+
+class IncompatibleModelMetadataError(Exception):
+    pass
 
 class Stats(object):
     def __init__(self, path, events_receiver):
@@ -60,6 +64,15 @@ class Stats(object):
                     obj = json.load(fp)
 
                 self.born_at = obj['born_at']
+                if 'histogram_size' not in obj: # backwards compatibility
+                    logger.warning("Brain metadata doesn't contain 'histogram_size', "\
+                                   "consider the current configuration correct, saving "\
+                                   "current featurizer's histogram_size")
+                    self.histogram_size = featurizer.histogram_size
+                else:
+                    if obj['histogram_size'] != featurizer.histogram_size:
+                        raise IncompatibleModelMetadataError(f"Incompatible histogram_size of the model: {obj['histogram_size']} != {featurizer.histogram_size}")
+                    self.histogram_size = obj['histogram_size']
                 self.epochs_lived, self.epochs_trained = obj['epochs_lived'], obj['epochs_trained']
                 self.best_reward, self.worst_reward = obj['rewards']['best'], obj['rewards']['worst']
 
@@ -68,7 +81,9 @@ class Stats(object):
             logger.info("saving stats to %s" % self.path)
 
             data = json.dumps({
+                'schema_version': 3,
                 'born_at': self.born_at,
+                'histogram_size': featurizer.histogram_size,
                 'epochs_lived': self.epochs_lived,
                 'epochs_trained': self.epochs_trained,
                 'rewards': {
@@ -90,11 +105,11 @@ class Stats(object):
 class AsyncTrainer(object):
     def __init__(self, config):
         self._config = config
+        self._nn_path = self._config['ai']['path']
         self._model = None
+        self._stats = None
         self._is_training = False
         self._training_epochs = 0
-        self._nn_path = self._config['ai']['path']
-        self._stats = Stats("%s.json" % os.path.splitext(self._nn_path)[0], self)
 
     def set_training(self, training, for_epochs=0):
         self._is_training = training
@@ -167,6 +182,8 @@ class AsyncTrainer(object):
 
     def _ai_worker(self):
         try:
+            # try loading metadata first, checking for compatibility
+            self._stats = Stats("%s.json" % os.path.splitext(self._nn_path)[0], self)
             self._model = ai.load(self._config, self, self._epoch)
             epochs_per_episode = self._config['ai']['epochs_per_episode']
 
@@ -214,6 +231,9 @@ class AsyncTrainer(object):
                 except Exception as e:
                     logger.exception(f"ignoring exception: {e}")
                     continue
+        except IncompatibleModelMetadataError as e:
+            logger.critical(f"Refusing to load model: {e}")
+            os._exit(3)
         except Exception as e:
             logger.exception(f"Error while starting AI: {e}")
             logger.info("Deleting brain and restarting.")
