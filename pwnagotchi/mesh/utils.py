@@ -41,15 +41,12 @@ class AsyncAdvertiser(object):
         grid.set_advertisement_data(self._advertisement)
 
     def start_advertising(self):
-        if self._config['personality']['advertise']:
-            #_thread.start_new_thread(self._adv_poller, ())
-            threading.Thread(target=self._adv_poller,args=(), name="Grid", daemon=True).start()
+        #_thread.start_new_thread(self._adv_poller, ())
+        threading.Thread(target=self._adv_poller,args=(), name="Grid", daemon=True).start()
 
-            grid.set_advertisement_data(self._advertisement)
-            grid.advertise(True)
-            self._view.on_state_change('face', self._on_face_change)
-        else:
-            logging.warning("advertising is disabled")
+        grid.set_advertisement_data(self._advertisement)
+        grid.advertise(True)
+        self._view.on_state_change('face', self._on_face_change)
 
     def _on_face_change(self, old, new):
         self._advertisement['face'] = new

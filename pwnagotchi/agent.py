@@ -122,8 +122,6 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             logging.debug("starting wifi module ...")
             self.start_module('wifi.recon')
 
-        self.start_advertising()
-
     def _wait_bettercap(self):
         while True:
             try:
@@ -136,16 +134,15 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def start(self):
         self.set_starting()
 
-        if self._config['ai']['enabled']:
-            self.start_ai()
-        else:
-            logging.info("ai disabled")
+        self._maybe_start(self._config['ai']['enabled'], 'ai', self.start_ai)
 
         self._wait_bettercap()
         self.setup_events()
         self.start_monitor_mode()
         self.start_event_polling()
         self.start_session_fetcher()
+        self._maybe_start(self._config['personality']['advertise'], 'advertising',
+                          self.start_advertising)
 
         # print initial stats
         self.next_epoch()
@@ -578,3 +575,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self.run('set wifi.ap.ttl %d' % self._config['personality']['ap_ttl'])
         self.run('set wifi.sta.ttl %d' % self._config['personality']['sta_ttl'])
         self.run('set wifi.rssi.min %d' % self._config['personality']['min_rssi'])
+
+    def _maybe_start(self, enabled, name, start_what):
+        if enabled:
+            start_what()
+        else:
+            logging.info(f"{name} disabled")
