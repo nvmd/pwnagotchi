@@ -33,11 +33,11 @@ class AsyncAdvertiser(object):
     def fingerprint(self):
         return self._keypair.fingerprint
 
-    def _update_advertisement(self, s):
-        self._advertisement['pwnd_run'] = len(self._handshakes)
-        self._advertisement['pwnd_tot'] = utils.total_unique_handshakes(self._config['bettercap']['handshakes'])
-        self._advertisement['uptime'] = pwnagotchi.uptime()
-        self._advertisement['epoch'] = self._epoch.epoch
+    def _update_advertisement(self, adv_data):
+        self._advertisement['pwnd_run'] = adv_data['pwnd_run']
+        self._advertisement['pwnd_tot'] = adv_data['pwnd_tot']
+        self._advertisement['uptime'] = adv_data['uptime']
+        self._advertisement['epoch'] = adv_data['epoch']
         grid.set_advertisement_data(self._advertisement)
 
     def start_advertising(self):

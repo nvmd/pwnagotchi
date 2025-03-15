@@ -315,6 +315,10 @@ class View(object):
 
     def on_recon(self, t):
         self.set('channel', '*')
+        # don't lie to the user, numbers from the previous recon
+        # don't make much sense during recon
+        self.set('aps', '*')
+        self.set('sta', '*')
         self.wait(t, self._voice.on_recon)
 
     def on_listening(self, t):
@@ -345,9 +349,18 @@ class View(object):
         self.set('status', self._voice.on_lonely())
         self.update()
 
-    def on_handshakes(self, new_shakes):
+    def on_handshakes(self, new, ap_mac_or_name=None, session=None, total=None):
         self.set('face', faces.HAPPY)
-        self.set('status', self._voice.on_handshakes(new_shakes))
+
+        # numbers of _unique_ handshakes everywhere
+        if new > 0:
+            self.set('status', self._voice.on_handshakes(new))
+        if (session is not None) and (total is not None):
+            txt = '%d (%d)' % (session, total)
+            if ap_mac_or_name is not None:
+                txt += ' [%s]' % ap_mac_or_name
+            self.set('shakes', txt)
+
         self.update()
 
     def on_unread_messages(self, count, total):
