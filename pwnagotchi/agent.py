@@ -39,18 +39,25 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self.recovery_file = self._config['main']['state-dir'] + "/" + "recovery.json"
 
         self._started_at = time.time()
-        self._current_channel = None
-        self._tot_aps = 0
-        self._aps_on_channel = 0
+
         self._supported_channels = utils.iface_channels(config['main']['iface'])
         self._view = view
         self._view.set_agent(self)
         self._web_ui = Server(self, config['ui'])
 
+        self._current_channel = None
+        # APs from the last recon
         self._access_points = []
-        self._last_pwnd = None
-        self._history = {}
+        # cache computed values from the latest AP recon and channel hop
+        self._tot_aps = 0
+        self._tot_stas = 0
+        self._aps_on_channel = 0
+        self._stas_on_channel = 0
+
+        self._history = {}  # MAC addr -> number of interactions
         self._handshakes = {}
+        self._last_pwnd = None
+
         self.last_session = LastSession(self._config)
         self.mode = 'auto'
 
@@ -173,7 +180,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def set_access_points(self, aps):
         self._access_points = aps
+
+        self._view_update_aps_sta_total(aps)
         plugins.on('wifi_update', self, aps)
+
         self._epoch.observe(aps, list(self._peers.values()))
         return self._access_points
 
@@ -237,39 +247,33 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                         return ap, sta
                 return ap, {'mac': station_mac, 'vendor': ''}
         return None
+    
+    def _view_update_aps_sta_total(self, aps):
+        logging.info("new list of APs")
 
-    def _update_uptime(self, s):
-        secs = pwnagotchi.uptime()
-        self._view.set('uptime', utils.secs_to_hhmmss(secs))
-        # self._view.set('epoch', '%04d' % self._epoch.epoch)
+        total_aps = len(aps)
+        total_stas = sum(len(ap['clients']) for ap in aps)
 
-    def _update_counters(self):
-        self._tot_aps = len(self._access_points)
-        tot_stas = sum(len(ap['clients']) for ap in self._access_points)
-        if self._is_recon_channel_hopping():
-            self._view.set('aps', '%d' % self._tot_aps)
-            self._view.set('sta', '%d' % tot_stas)
-        else:
-            self._aps_on_channel = len([ap for ap in self._access_points if ap['channel'] == self._current_channel])
-            stas_on_channel = sum(
-                [len(ap['clients']) for ap in self._access_points if ap['channel'] == self._current_channel])
-            self._view.set('aps', '%d (%d)' % (self._aps_on_channel, self._tot_aps))
-            self._view.set('sta', '%d (%d)' % (stas_on_channel, tot_stas))
+        self._tot_aps = total_aps
+        self._tot_stas = total_stas
+        self._view.set('aps', '%d' % total_aps)
+        self._view.set('sta', '%d' % total_stas)
+        
+    def _view_update_aps_sta_ch(self, channel):
+        aps_ch = len([ap for ap in self._access_points if ap['channel'] == channel])
+        stas_ch = sum(
+            [len(ap['clients']) for ap in self._access_points if ap['channel'] == channel])
 
-    def _update_handshakes(self, new_shakes=0):
-        if new_shakes > 0:
-            self._epoch.track(handshake=True, inc=new_shakes)
+        self._aps_on_channel = aps_ch
+        self._stas_on_channel = stas_ch
+        self._view.set('aps', '%d (%d)' % (aps_ch, self._tot_aps))
+        self._view.set('sta', '%d (%d)' % (stas_ch, self._tot_stas))
 
-        tot = utils.total_unique_handshakes(self._config['bettercap']['handshakes'])
-        txt = '%d (%d)' % (len(self._handshakes), tot)
-
-        if self._last_pwnd is not None:
-            txt += ' [%s]' % self._last_pwnd
-
-        self._view.set('shakes', txt)
-
-        if new_shakes > 0:
-            self._view.on_handshakes(new_shakes)
+    def _view_update_handshakes(self, new, ap_mac_or_name=None):
+        session = len(self._handshakes)
+        total = utils.total_unique_handshakes(self._config['bettercap']['handshakes'])
+        self._view.on_handshakes(new, ap_mac_or_name=ap_mac_or_name,
+                                 session=session, total=total)
 
     def _update_peers(self):
         self._view.set_closest_peer(self._closest_peer, len(self._peers))
@@ -319,33 +323,31 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def _fetch_stats(self):
         while True:
-            try:
-                s = self.session()
-            except Exception as err:
-                logging.error("[agent:_fetch_stats] self.session: %s" % repr(err))
+            uptime_secs = pwnagotchi.uptime()
+            self._view.set('uptime', utils.secs_to_hhmmss(uptime_secs))
 
             try:
-                self._update_uptime(s)
-            except Exception as err:
-                logging.error("[agent:_fetch_stats] self.update_uptimes: %s" % repr(err))
-
-            try:
-                self._update_advertisement(s)
+                self._update_advertisement(adv_data = {
+                    'pwnd_run': len(self._handshakes),
+                    'pwnd_tot': utils.total_unique_handshakes(self._config['bettercap']['handshakes']),
+                    'uptime': uptime_secs,
+                    'epoch': self._epoch.epoch,
+                })
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.update_advertisements: %s" % repr(err))
 
             try:
-                self._update_peers()
+                # self._update_peers()  ################
+                self._view.set_closest_peer(self._closest_peer, len(self._peers))
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.update_peers: %s" % repr(err))
-            try:
-                self._update_counters()
-            except Exception as err:
-                logging.error("[agent:_fetch_stats] self.update_counters: %s" % repr(err))
-            try:
-                self._update_handshakes(0)
-            except Exception as err:
-                logging.error("[agent:_fetch_stats] self.update_handshakes: %s" % repr(err))
+
+            # FIXME:
+            # this is really only needed on the first run, to populate historical data
+            # view is getting updated on every handshake in `track_handshake`
+            # there's no way the number can change outside of that, unless
+            # pwnagotchi is running in MANU
+            self._view_update_handshakes(0, self._last_pwnd)
 
             time.sleep(5)
 
@@ -364,24 +366,31 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             sta_mac = jmsg['data']['station']
             ap_mac = jmsg['data']['ap']
             key = "%s -> %s" % (sta_mac, ap_mac)
-            if key not in self._handshakes:
-                self._handshakes[key] = jmsg
-                s = self.session()
-                ap_and_station = self._find_ap_sta_in(sta_mac, ap_mac, s)
-                if ap_and_station is None:
-                    logging.warning("!!! captured new handshake: %s !!!", key)
-                    self._last_pwnd = ap_mac
-                    plugins.on('handshake', self, filename, ap_mac, sta_mac)
-                else:
-                    (ap, sta) = ap_and_station
-                    self._last_pwnd = ap['hostname'] if ap['hostname'] != '' and ap[
-                        'hostname'] != '<hidden>' else ap_mac
-                    logging.warning(
-                        "!!! captured new handshake on channel %d, %d dBm: %s (%s) -> %s [%s (%s)] !!!",
-                        ap['channel'], ap['rssi'], sta['mac'], sta['vendor'], ap['hostname'], ap['mac'], ap['vendor'])
-                    plugins.on('handshake', self, filename, ap, sta)
-                found_handshake = True
-            self._update_handshakes(1 if found_handshake else 0)
+            
+            # check if it's new/unique for this session
+            if key in self._handshakes:
+                # don't provide ap_mac_or_name – view tracks only the last new
+                # and save name lookup with self._find_ap_sta_in
+                self.track_handshake(new=0)
+                return
+
+            self._handshakes[key] = jmsg
+            pwnd_ap = None  # name or mac addr
+            ap_and_station = self._find_ap_sta_in(sta_mac, ap_mac, self.session())
+            if ap_and_station is None:
+                logging.warning("!!! captured new handshake: %s !!!", key)
+                pwnd_ap = ap_mac
+                plugins.on('handshake', self, filename, ap_mac, sta_mac)
+            else:
+                (ap, sta) = ap_and_station
+                pwnd_ap = ap['hostname'] if ap['hostname'] != '' and ap[
+                    'hostname'] != '<hidden>' else ap_mac
+                logging.warning(
+                    "!!! captured new handshake on channel %d, %d dBm: %s (%s) -> %s [%s (%s)] !!!",
+                    ap['channel'], ap['rssi'], sta['mac'], sta['vendor'], ap['hostname'], ap['mac'], ap['vendor'])
+                plugins.on('handshake', self, filename, ap, sta)
+
+            self.track_handshake(new=1, ap_mac_or_name=pwnd_ap)
 
     def _event_poller(self, loop):
         self._load_recovery_data()
@@ -462,10 +471,26 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def track_assoc(self, who):
         self.track_interaction(who)
         self._epoch.track(assoc=True)
+        # NOTE: view isn't updated here because only successful assocs
+        # are tracked, but the view tracks (is updated) on an attempt
+        # to do so! it may fail
 
     def track_deauth(self, who):
         self.track_interaction(who)
         self._epoch.track(deauth=True)
+        # NOTE: why view isn't update here? see `track_assoc`
+
+    def track_handshake(self, new, ap_mac_or_name=None):
+        # numbers of _unique_ handshakes everywhere
+        self._epoch.track(handshake=True, inc=new)
+        # NOTE: maybe save to `self._handshakes` here as well
+
+        # save only if new in this session
+        if new > 0:
+            self._last_pwnd = ap_mac_or_name
+
+        # view also tracks successful handshakes
+        self._view_update_handshakes(new, self._last_pwnd)
 
     def associate(self, ap):
         if self.is_stale():
@@ -550,6 +575,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self._epoch.track(hop=True)
             self._view.set('channel', '%d' % channel)
 
+            self._view_update_aps_sta_ch(channel)
             plugins.on('channel_hop', self, channel)
 
         except Exception as e:
