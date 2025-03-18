@@ -270,10 +270,16 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._view.set('sta', '%d (%d)' % (stas_ch, self._tot_stas))
 
     def _view_update_handshakes(self, new, ap_mac_or_name=None):
-        session = len(self._handshakes)
-        total = utils.total_unique_handshakes(self._config['bettercap']['handshakes'])
+        num_session = len(self._handshakes)
+        num_total = utils.total_unique_handshakes(self._config['bettercap']['handshakes'])
+
+        self._update_advertisement(adv_data = {
+            'pwnd_run': num_session,
+            'pwnd_tot': num_total,
+        })
+
         self._view.on_handshakes(new, ap_mac_or_name=ap_mac_or_name,
-                                 session=session, total=total)
+                                 session=num_session, total=num_total)
 
     def _update_peers(self):
         self._view.set_closest_peer(self._closest_peer, len(self._peers))
@@ -326,15 +332,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             uptime_secs = pwnagotchi.uptime()
             self._view.set('uptime', utils.secs_to_hhmmss(uptime_secs))
 
-            try:
-                self._update_advertisement(adv_data = {
-                    'pwnd_run': len(self._handshakes),
-                    'pwnd_tot': utils.total_unique_handshakes(self._config['bettercap']['handshakes']),
-                    'uptime': uptime_secs,
-                    'epoch': self._epoch.epoch,
-                })
-            except Exception as err:
-                logging.error("[agent:_fetch_stats] self.update_advertisements: %s" % repr(err))
+            self._update_advertisement(adv_data = {
+                'uptime': uptime_secs,
+                'epoch': self._epoch.epoch, # .next_epoch() is in Automata
+            })
 
             try:
                 # self._update_peers()  ################
