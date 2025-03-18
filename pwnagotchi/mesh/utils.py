@@ -9,10 +9,11 @@ import pwnagotchi.ui.faces as faces
 import pwnagotchi.plugins as plugins
 import pwnagotchi.grid as grid
 from pwnagotchi.mesh.peer import Peer
-
+from pwnagotchi.ui.view import View
+from pwnagotchi.identity import KeyPair
 
 class AsyncAdvertiser(object):
-    def __init__(self, config, view, keypair):
+    def __init__(self, config: dict, view: View, keypair: KeyPair):
         self._config = config
         self._view = view
         self._keypair = keypair

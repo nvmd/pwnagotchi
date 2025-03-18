@@ -8,6 +8,7 @@ from threading import Lock
 from PIL import ImageDraw
 
 import pwnagotchi
+from pwnagotchi.mesh.peer import Peer
 from pwnagotchi.ui.hw.base import DisplayImpl
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.faces as faces
@@ -203,7 +204,7 @@ class View(object):
         self.set('status', self._voice.on_normal())
         self.update()
 
-    def set_closest_peer(self, peer, num_total):
+    def set_closest_peer(self, peer: None | Peer, num_total: int):
         if peer is None:
             self.set('friend_face', None)
             self.set('friend_name', None)
@@ -232,7 +233,7 @@ class View(object):
             self.set('friend_name', name)
         self.update()
 
-    def on_new_peer(self, peer):
+    def on_new_peer(self, peer: Peer):
         face = ''
         # first time they met, neutral mood
         if peer.first_encounter():
@@ -249,7 +250,7 @@ class View(object):
         self.update()
         time.sleep(3)
 
-    def on_lost_peer(self, peer):
+    def on_lost_peer(self, peer: Peer):
         self.set('face', faces.LONELY)
         self.set('status', self._voice.on_lost_peer(peer))
         self.update()
