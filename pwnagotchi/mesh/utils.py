@@ -27,6 +27,8 @@ class AsyncAdvertiser(object):
             'epoch': 0,
             'policy': self._config['personality']
         }
+        self._advertisement_cond = threading.Condition()
+
         self._peers = {}
         self._closest_peer = None
 
@@ -34,23 +36,18 @@ class AsyncAdvertiser(object):
         return self._keypair.fingerprint
 
     def _update_advertisement(self, adv_data):
-        self._advertisement['pwnd_run'] = adv_data['pwnd_run']
-        self._advertisement['pwnd_tot'] = adv_data['pwnd_tot']
-        self._advertisement['uptime'] = adv_data['uptime']
-        self._advertisement['epoch'] = adv_data['epoch']
-        grid.set_advertisement_data(self._advertisement)
+        with self._advertisement_cond:
+            self._advertisement.update(adv_data)
+            self._advertisement_cond.notify()
 
     def start_advertising(self):
-        #_thread.start_new_thread(self._adv_poller, ())
-        threading.Thread(target=self._adv_poller,args=(), name="Grid", daemon=True).start()
-
-        grid.set_advertisement_data(self._advertisement)
-        grid.advertise(True)
+        # subscribe to face change events
         self._view.on_state_change('face', self._on_face_change)
 
+        threading.Thread(target=self._adv_poller,args=(), name="Grid", daemon=True).start()
+
     def _on_face_change(self, old, new):
-        self._advertisement['face'] = new
-        grid.set_advertisement_data(self._advertisement)
+        self._update_advertisement(adv_data = { 'face': new })
 
     def cumulative_encounters(self):
         return sum(peer.encounters for _, peer in self._peers.items())
@@ -66,10 +63,22 @@ class AsyncAdvertiser(object):
         plugins.on('peer_lost', self, peer)
 
     def _adv_poller(self):
+        grid.advertise(True)
+
         # give the system a few seconds to start the first time so that any expressions
         # due to nearby units will be rendered properly
         time.sleep(20)
         while True:
+            try:
+                logging.debug("advertising current info to pwngrid-peer")
+                adv_data = None
+                with self._advertisement_cond:
+                    if self._advertisement_cond.wait(1.0):
+                        adv_data = self._advertisement
+                grid.set_advertisement_data(adv_data)
+            except Exception as e:
+                logging.exception(f"error while advertising current info to pwngrid-peer: {e}")
+
             try:
                 logging.debug("polling pwngrid-peer for peers ...")
 
