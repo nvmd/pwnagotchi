@@ -2,6 +2,7 @@ import logging
 
 import pwnagotchi.plugins as plugins
 from pwnagotchi.ai.epoch import Epoch
+from pwnagotchi.ai.epoch import Session
 from pwnagotchi.ui.view import View
 import os
 
@@ -12,6 +13,7 @@ class Automata(object):
         self._config = config
         self._view = view
         self._epoch = Epoch(config)
+        self._session = Session(config, None)
 
     def _on_miss(self, who):
         logging.info("it looks like %s is not in range anymore :/", who)
@@ -41,6 +43,31 @@ class Automata(object):
         total_encounters = sum(peer.encounters for _, peer in self._peers.items())
         support_factor = total_encounters / bond_factor
         return support_factor >= factor
+    
+    def set_mood(self, epoch: Epoch, epoch_was_stale: bool, epoch_num_misses: int):
+        # after X misses during an epoch, set the status to lonely or angry
+        if epoch_was_stale:
+            factor = epoch_num_misses / self._config['personality']['max_misses_for_recon']
+            if factor >= 2.0:
+                self.set_angry(factor)
+            else:
+                logging.warning("agent missed %d interactions -> lonely", epoch_num_misses)
+                self.set_lonely()
+        # after X times being bored, the status is set to sad or angry
+        elif epoch.sad_for:
+            factor = epoch.inactive_for / self._config['personality']['sad_num_epochs']
+            if factor >= 2.0:
+                self.set_angry(factor)
+            else:
+                self.set_sad()
+        # after X times being inactive, the status is set to bored
+        elif epoch.bored_for:
+            self.set_bored()
+        # after X times being active, the status is set to happy / excited
+        elif epoch.active_for >= self._config['personality']['excited_num_epochs']:
+            self.set_excited()
+        elif epoch.active_for >= 5 and self._has_support_network_for(5.0):
+            self.set_grateful()
 
     # triggered when it's a sad/bad day, but you have good friends around ^_^
     def set_grateful(self):
@@ -114,7 +141,7 @@ class Automata(object):
         self._view.on_recon(recon_time)
         plugins.on('wait', self, recon_time)    # 'wait' for backward compatibility
 
-    def is_stale(self):
+    def is_stale(self) -> bool:
         return self._epoch.num_missed > self._config['personality']['max_misses_for_recon']
 
     def any_activity(self):
@@ -123,34 +150,15 @@ class Automata(object):
     def next_epoch(self):
         logging.debug("agent.next_epoch()")
 
+        # FIXME: these two will be cleared by self._epoch.next(),
+        # but are needed together with the data computed in it
+        # in set_mood()
         was_stale = self.is_stale()
         did_miss = self._epoch.num_missed
 
         self._epoch.next()
 
-        # after X misses during an epoch, set the status to lonely or angry
-        if was_stale:
-            factor = did_miss / self._config['personality']['max_misses_for_recon']
-            if factor >= 2.0:
-                self.set_angry(factor)
-            else:
-                logging.warning("agent missed %d interactions -> lonely", did_miss)
-                self.set_lonely()
-        # after X times being bored, the status is set to sad or angry
-        elif self._epoch.sad_for:
-            factor = self._epoch.inactive_for / self._config['personality']['sad_num_epochs']
-            if factor >= 2.0:
-                self.set_angry(factor)
-            else:
-                self.set_sad()
-        # after X times being inactive, the status is set to bored
-        elif self._epoch.bored_for:
-            self.set_bored()
-        # after X times being active, the status is set to happy / excited
-        elif self._epoch.active_for >= self._config['personality']['excited_num_epochs']:
-            self.set_excited()
-        elif self._epoch.active_for >= 5 and self._has_support_network_for(5.0):
-            self.set_grateful()
+        self.set_mood(epoch=self._epoch, epoch_was_stale=was_stale, epoch_num_misses=did_miss)
 
         plugins.on('epoch', self, self._epoch.epoch - 1, self._epoch.data())
         if self._epoch.blind_for >= self._config['main']['mon_max_blind_epochs']:
