@@ -36,12 +36,15 @@ def featurize(state, step):
     tot_epochs = step + 1e-10
     tot_interactions = (state['num_deauths'] + state['num_associations']) + 1e-10
     return np.concatenate((
+        ## Epoch's '_observation'
         # aps per channel
         state['aps_histogram'],
         # clients per channel
         state['sta_histogram'],
         # peers per channel
         state['peers_histogram'],
+
+        ## Epoch's '_epoch_data'
         # duration
         [np.clip(state['duration_secs'] / MAX_EPOCH_DURATION, 0.0, 1.0)],
         # inactive
