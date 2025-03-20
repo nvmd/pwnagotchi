@@ -555,11 +555,15 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         # and only association frames have been sent, we don't need to wait
         # on it very long (before switching channel) as we don't have to wait for
         # such client stations to reconnect in order to sniff the handshake.
+        deauth_recon_time = self._config['personality']['hop_recon_time']
+        assoc_recon_time = self._config['personality']['min_recon_time']
         wait = 0
-        if self._epoch.did_deauth:
-            wait = self._config['personality']['hop_recon_time']
+        if self._epoch.did_deauth and self._epoch.did_associate:
+            wait = max(deauth_recon_time, assoc_recon_time)
+        elif self._epoch.did_deauth:
+            wait = deauth_recon_time
         elif self._epoch.did_associate:
-            wait = self._config['personality']['min_recon_time']
+            wait = assoc_recon_time
 
         if wait > 0:
             if verbose:
