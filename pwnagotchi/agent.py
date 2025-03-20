@@ -499,6 +499,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             raise StaleReconError()
 
         if not self._should_assoc(ap['mac']):
+            logging.info(f"skipping assoc({ap['mac']})")
             return
 
         self._view.on_assoc(ap)
@@ -519,6 +520,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             raise StaleReconError()
 
         if not self._should_deauth(sta['mac']):
+            logging.info(f"skipping deauth({sta['mac']})")
             return
 
         self._view.on_deauth(sta)
@@ -536,6 +538,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def observe_current_channel(self, verbose=True):
         if self._is_recon_channel_hopping():
+            logging.error("observe_current_channel is called when "\
+                          "recon_channel_hopping is in progress")
             return
 
         # Wait on the current channel if needed
@@ -551,27 +555,30 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         if wait > 0:
             if verbose:
-                logging.info("waiting for %ds on channel %d ...", wait, self._current_channel)
+                logging.info(f"observing channel {self._current_channel} for {wait}s")
             else:
-                logging.debug("waiting for %ds on channel %d ...", wait, self._current_channel)
+                logging.debug(f"observing channel {self._current_channel} for {wait}s")
             self.set_observing_channel(wait)
+        else:
+            logging.warning(f"not observing channel {self._current_channel} "\
+                             "because no successful deauths or assocs have been "\
+                             "previously made in this epoch")
 
     def set_channel(self, channel, verbose=True):
         if self.is_stale():
             logging.debug("recon is stale, skipping set_channel(%d)", channel)
             raise StaleReconError()
         if channel == self._current_channel:
+            logging.info(f"already on channel {channel}")
             return
 
         # Hop to the new channel
-
-        if verbose and self._epoch.any_activity:
-            logging.info("CHANNEL %d", channel)
-
         try:
             # only one channel to recon on
             self.run('wifi.recon.channel %d' % channel)
             self._current_channel = channel
+
+            logging.info("CHANNEL %d", channel)
 
             self._epoch.track(hop=True)
             self._view.set('channel', '%d' % channel)

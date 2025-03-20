@@ -66,6 +66,7 @@ def pwnagotchi_cli():
                     for ch, aps in channels:
                         time.sleep(1)
                         agent.set_channel(ch)
+                        logging.info(f"CH {ch}: {len(aps)} APs")
 
                         # for each ap on this channel
                         for ap in aps:
@@ -76,7 +77,6 @@ def pwnagotchi_cli():
                                 agent.deauth(ap, sta)
 
                         agent.observe_current_channel()
-                        logging.info("%d access points on channel %d" % (len(aps), ch))
                 except StaleReconError as e:
                     # don't observe_current_channel() even though some 
                     # assocs/deauths may have been sent
