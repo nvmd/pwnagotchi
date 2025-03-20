@@ -232,7 +232,7 @@ class FixServices(plugins.Plugin):
             if exc_callback != None:
                 exc_callback(agent)
 
-    def logPrintView(self, level: str, message, ui=None, displayData=None, force=True):
+    def logPrintView(self, level: str, message, ui = View | None, displayData=None, force=True):
         try:
             lvl = logging.getLevelNamesMapping()[level.upper()]
             if lvl is None:
@@ -254,7 +254,7 @@ class FixServices(plugins.Plugin):
             display = agent.view()
         return display
 
-    def _tryTurningItOffAndOnAgain(self, connection):
+    def _tryTurningItOffAndOnAgain(self, agent: Agent):
         # avoid overlapping restarts, but allow it if it's been a while
         # (in case the last attempt failed before resetting "isReloadingMon")
         if self.isReloadingMon and (time.time() - self.LASTTRY) < 180:
@@ -263,10 +263,10 @@ class FixServices(plugins.Plugin):
             self.isReloadingMon = True
             self.LASTTRY = time.time()
 
-            display = self._get_view_if_available(connection)
+            display = self._get_view_if_available(agent)
             if display:
                 display.update(force=True, new_data={"status": "I'm blind! Try turning it off and on again",
-                                                        "face": faces.BORED})
+                                                     "face": faces.BORED})
 
             # main divergence from WATCHDOG starts here
             #
@@ -291,7 +291,7 @@ class FixServices(plugins.Plugin):
                 logger.error("[ip link show wlan0mon]: %s" % repr(err))
 
             try:
-                result = connection.run("wifi.recon off")
+                result = agent.run("wifi.recon off")
                 if "success" in result:
                     self.logPrintView("info", "wifi.recon off: %s!" % repr(result),
                                       display, {"status": "Wifi recon paused!", "face": faces.COOL})
@@ -335,7 +335,7 @@ class FixServices(plugins.Plugin):
                                               % (tries, cmd_output))
                             try:
                                 # try accessing mon0 in bettercap
-                                result = connection.run("set wifi.interface wlan0mon")
+                                result = agent.run("set wifi.interface wlan0mon")
                                 if "success" in result:
                                     logger.debug("[set wifi.interface wlan0mon worked!")
                                     # stop looping and get back to recon
@@ -382,7 +382,7 @@ class FixServices(plugins.Plugin):
 
             logger.debug("re-enable recon")
             try:
-                result = connection.run("wifi.clear; wifi.recon on")
+                result = agent.run("wifi.clear; wifi.recon on")
 
                 if "success" in result:  # and result["success"] is True:
                     self.logPrintView("debug", "wifi.recon on",
