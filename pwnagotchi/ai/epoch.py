@@ -8,11 +8,9 @@ import pwnagotchi.mesh.wifi as wifi
 
 from pwnagotchi.ai.reward import RewardFunction
 
-
-class Epoch(object):
-    def __init__(self, config):
-        self.epoch = 0
-        self.config = config
+class Session(object):
+    def __init__(self, config, recovery = dict | None):
+        # Metrics for the current Session
         # how many consecutive epochs with no activity
         self.inactive_for = 0
         # how many consecutive epochs with activity
@@ -23,6 +21,120 @@ class Epoch(object):
         self.sad_for = 0
         # number of epochs in bored state
         self.bored_for = 0
+
+        self._epoch = Epoch(config)
+        if recovery is not None:
+            # self.epoch.inactive_for = recovery['inactive_for']
+            # self.epoch.active_for = recovery['active_for']
+            # self.epoch.blind_for = recovery['blind_for']
+            # self.epoch.sad_for = recovery['sad_for']
+            # self.epoch.bored_for = recovery['bored_for']
+            self.inactive_for = recovery['inactive_for']
+            self.active_for = recovery['active_for']
+            self.blind_for = recovery['blind_for']
+            self.sad_for = recovery['sad_for']
+            self.bored_for = recovery['bored_for']
+            
+            self._started_at = recovery['started_at']
+            self._epoch.epoch = len(recovery['epochs'])   # next epoch number, [0..]
+            self._handshakes = recovery['handshakes']
+            self._history = recovery['history']
+            self._last_pwnd = recovery['last_pwnd']
+
+        self.prev_epoch_results = {}
+        self.prev_epoch_results_ready = threading.Event()
+        
+        self.prev_epochs: list[dict] | None = None
+
+        self.reward_of_epoch = RewardFunction()
+
+        self._history = {}  # MAC addr -> number of interactions
+        self._handshakes = {}   # "%s -> %s" % (sta_mac, ap_mac) -> handshake
+        self._last_pwnd = None
+
+    def observe(self, aps, peers):
+        self._epoch.observe(aps=aps, peers=peers)
+
+    def track(self, deauth=False, assoc=False, handshake=False, hop=False, sleep=False, miss=False, inc=1):
+        self._epoch(deauth=deauth, assoc=assoc, handshake=handshake,
+                   hop=hop, sleep=sleep, miss=miss, inc=inc)
+
+    def next_epoch(self):
+        if self._epoch.any_activity is False and self._epoch.did_handshakes is False:
+            self.inactive_for += 1
+            self.active_for = 0
+        else:
+            self.active_for += 1
+            self.inactive_for = 0
+            self.sad_for = 0
+            self.bored_for = 0
+
+        if self.inactive_for >= self.config['personality']['sad_num_epochs']:
+            # sad > bored; cant be sad and bored
+            self.bored_for = 0
+            self.sad_for += 1
+        elif self.inactive_for >= self.config['personality']['bored_num_epochs']:
+            # sad_treshhold > inactive > bored_treshhold; cant be sad and bored
+            self.sad_for = 0
+            self.bored_for += 1
+        else:
+            self.sad_for = 0
+            self.bored_for = 0
+            
+        session_data = self.get_session_data()
+        prev_epoch_data = self._epoch.next() | {
+            'reward': self.reward_of_epoch(self._epoch.epoch + 1,
+                                           session_data | prev_epoch_data)
+        }
+
+        self.prev_epochs.append(prev_epoch_data)
+
+        self.prev_epoch_results = session_data | prev_epoch_data
+        self.prev_epoch_results_ready.set()
+
+    # def wait_for_epoch_data(self, with_observation=True, timeout=None):
+    def wait_for_epoch_to_finish(self):
+        self.prev_epoch_results_ready.wait()
+        self.prev_epoch_results_ready.clear()
+        return self.prev_epoch_results
+
+    def get_session_data(self) -> dict:
+        return {
+            'blind_for_epochs': self.blind_for,
+            'inactive_for_epochs': self.inactive_for,
+            'active_for_epochs': self.active_for,
+            'sad_for_epochs': self.sad_for,
+            'bored_for_epochs': self.bored_for
+        }
+
+    def get_full_session_data(self) -> dict:
+        return self.get_session_data() | {
+            'started_at': self._started_at,
+            'history': self._history,
+            'handshakes': self._handshakes,
+            'last_pwnd': self._last_pwnd,
+            'epochs': self.prev_epochs
+        }
+
+
+class Epoch(object):
+    def __init__(self, config):
+        self.epoch = 0
+        self.config = config
+
+        # # Metrics for the current Session
+        # # how many consecutive epochs with no activity
+        # self.inactive_for = 0
+        # # how many consecutive epochs with activity
+        # self.active_for = 0
+        # # number of epochs with no visible access points
+        # self.blind_for = 0
+        # # number of epochs in sad state
+        # self.sad_for = 0
+        # # number of epochs in bored state
+        # self.bored_for = 0
+
+        # Metrics for the current Epoch
         # did deauth in this epoch in the current channel?
         self.did_deauth = False
         # number of deauths in this epoch
@@ -63,8 +175,8 @@ class Epoch(object):
         }
         self._observation_ready = threading.Event()
         self._epoch_data = {}
-        self._epoch_data_ready = threading.Event()
-        self._reward = RewardFunction()
+        # self._epoch_data_ready = threading.Event()
+        # self._reward = RewardFunction()
 
     def wait_for_epoch_data(self, with_observation=True, timeout=None):
         # if with_observation:
@@ -155,26 +267,26 @@ class Epoch(object):
             self.num_slept += inc
 
     def next(self):
-        if self.any_activity is False and self.did_handshakes is False:
-            self.inactive_for += 1
-            self.active_for = 0
-        else:
-            self.active_for += 1
-            self.inactive_for = 0
-            self.sad_for = 0
-            self.bored_for = 0
+        # if self.any_activity is False and self.did_handshakes is False:
+        #     self.inactive_for += 1
+        #     self.active_for = 0
+        # else:
+        #     self.active_for += 1
+        #     self.inactive_for = 0
+        #     self.sad_for = 0
+        #     self.bored_for = 0
 
-        if self.inactive_for >= self.config['personality']['sad_num_epochs']:
-            # sad > bored; cant be sad and bored
-            self.bored_for = 0
-            self.sad_for += 1
-        elif self.inactive_for >= self.config['personality']['bored_num_epochs']:
-            # sad_treshhold > inactive > bored_treshhold; cant be sad and bored
-            self.sad_for = 0
-            self.bored_for += 1
-        else:
-            self.sad_for = 0
-            self.bored_for = 0
+        # if self.inactive_for >= self.config['personality']['sad_num_epochs']:
+        #     # sad > bored; cant be sad and bored
+        #     self.bored_for = 0
+        #     self.sad_for += 1
+        # elif self.inactive_for >= self.config['personality']['bored_num_epochs']:
+        #     # sad_treshhold > inactive > bored_treshhold; cant be sad and bored
+        #     self.sad_for = 0
+        #     self.bored_for += 1
+        # else:
+        #     self.sad_for = 0
+        #     self.bored_for = 0
 
         now = time.time()
         cpu = pwnagotchi.cpu_load("epoch")
@@ -205,8 +317,8 @@ class Epoch(object):
             'temperature': temp
         }
 
-        self._epoch_data['reward'] = self._reward(self.epoch + 1, self._epoch_data)
-        self._epoch_data_ready.set()
+        # self._epoch_data['reward'] = self._reward(self.epoch + 1, self._epoch_data)
+        # self._epoch_data_ready.set()
 
         logging.info("[epoch %d] duration=%s slept_for=%s blind=%d sad=%d bored=%d inactive=%d active=%d peers=%d tot_bond=%.2f "
                      "avg_bond=%.2f hops=%d missed=%d deauths=%d assocs=%d handshakes=%d cpu=%d%% mem=%d%% "
@@ -247,3 +359,5 @@ class Epoch(object):
         self.num_hops = 0
         self.num_slept = 0
         self.any_activity = False
+        
+        return self._observation | self._epoch_data
