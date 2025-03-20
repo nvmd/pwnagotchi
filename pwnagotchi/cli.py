@@ -66,7 +66,6 @@ def pwnagotchi_cli():
                     for ch, aps in channels:
                         time.sleep(1)
                         agent.set_channel(ch)
-                        logging.info(f"CH {ch}: {len(aps)} APs")
 
                         # for each ap on this channel
                         for ap in aps:

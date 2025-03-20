@@ -20,6 +20,7 @@ from pwnagotchi.bettercap import Client, BettercapConnectionError, BettercapErro
 from pwnagotchi.mesh.utils import AsyncAdvertiser
 from pwnagotchi.ai.train import AsyncTrainer
 
+logger = logging.getLogger(__name__)
 
 class StaleReconError(Exception):
     pass
@@ -65,9 +66,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         if not os.path.exists(config['bettercap']['handshakes']):
             os.makedirs(config['bettercap']['handshakes'])
 
-        logging.info("%s@%s (v%s)", pwnagotchi.name(), self.fingerprint(), pwnagotchi.__version__)
+        logger.info("%s@%s (v%s)", pwnagotchi.name(), self.fingerprint(), pwnagotchi.__version__)
         for _, plugin in plugins.loaded.items():
-            logging.debug("plugin '%s' v%s", plugin.__class__.__name__, plugin.__version__)
+            logger.debug("plugin '%s' v%s", plugin.__class__.__name__, plugin.__version__)
 
     def config(self):
         return self._config
@@ -104,30 +105,30 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             s = self.session()
             for iface in s['interfaces']:
                 if iface['name'] == mon_iface:
-                    logging.info("found monitor interface: %s", iface['name'])
+                    logger.info("found monitor interface: %s", iface['name'])
                     has_mon = True
                     break
 
             if has_mon is False:
                 if mon_start_cmd is not None and mon_start_cmd != '':
-                    logging.info("starting monitor interface ...")
+                    logger.info("starting monitor interface ...")
                     self.run('!%s' % mon_start_cmd)
                 else:
-                    logging.info("waiting for monitor interface %s ...", mon_iface)
+                    logger.info("waiting for monitor interface %s ...", mon_iface)
                     time.sleep(1)
 
-        logging.info("supported channels: %s", self._supported_channels)
-        logging.info("handshakes will be collected inside %s", self._config['bettercap']['handshakes'])
+        logger.info("supported channels: %s", self._supported_channels)
+        logger.info("handshakes will be collected inside %s", self._config['bettercap']['handshakes'])
 
         self._reset_wifi_settings()
 
         wifi_running = self.is_module_running('wifi')
         if wifi_running and restart:
-            logging.debug("restarting wifi module ...")
+            logger.debug("restarting wifi module ...")
             self.restart_module('wifi.recon')
             self.run('wifi.clear')
         elif not wifi_running:
-            logging.debug("starting wifi module ...")
+            logger.debug("starting wifi module ...")
             self.start_module('wifi.recon')
 
     def _wait_bettercap(self):
@@ -136,7 +137,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 _s = self.session()
                 return
             except Exception:
-                logging.info("waiting for bettercap API to become available ...")
+                logger.info("waiting for bettercap API to become available ...")
                 time.sleep(1)
 
     def start(self):
@@ -168,13 +169,13 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._current_channel = None
 
         if not channels:
-            logging.debug("RECON %ds", recon_time)
+            logger.info("RECON %ds", recon_time)
             # Enable channel hopping on all supported channels.
             self.run('wifi.recon.channel clear')
         else:
             # Comma separated list of channels to hop on
             channel_list = ','.join(map(str, channels))
-            logging.debug("RECON %ds ON CHANNELS %s", recon_time, channel_list)
+            logger.info("RECON %ds on channels %s", recon_time, channel_list)
             self.run('wifi.recon.channel %s' % channel_list)
 
         self.set_conducting_recon(recon_time)
@@ -221,7 +222,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             raise e
         except Exception as e:
             # consider exceptions other than from bettercap safe to ignore
-            logging.exception("Error while getting access points (%s)", e)
+            logger.exception("Error while getting access points (%s)", e)
 
         aps.sort(key=lambda ap: ap['channel'])
         return self._set_access_points(aps)
@@ -256,7 +257,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         total_aps = len(aps)
         total_stas = sum(len(ap['clients']) for ap in aps)
 
-        logging.info(f"Wi-Fi observation: {total_aps} APs, {total_stas} STAs")
+        logger.info(f"Wi-Fi observation: {total_aps} APs, {total_stas} STAs")
 
         self._tot_aps = total_aps
         self._tot_stas = total_stas
@@ -298,7 +299,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         pwnagotchi.restart(mode)
 
     def _save_recovery_data(self):
-        logging.info("writing recovery data to %s ...", self.recovery_file)
+        logger.info("writing recovery data to %s ...", self.recovery_file)
         with open(self.recovery_file, 'w') as fp:
             data = {
                 'started_at': self._started_at,
@@ -313,7 +314,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         try:
             with open(self.recovery_file, 'rt') as fp:
                 data = json.load(fp)
-                logging.info("found recovery data: %s", data)
+                logger.info("found recovery data: %s", data)
                 self._started_at = data['started_at']
                 self._epoch.epoch = data['epoch']
                 self._handshakes = data['handshakes']
@@ -321,7 +322,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 self._last_pwnd = data['last_pwnd']
 
                 if delete:
-                    logging.info("deleting %s", self.recovery_file)
+                    logger.info("deleting %s", self.recovery_file)
                     os.unlink(self.recovery_file)
         except:
             if not no_exceptions:
@@ -345,7 +346,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 # self._update_peers()  ################
                 self._view.set_closest_peer(self._closest_peer, len(self._peers))
             except Exception as err:
-                logging.error("[agent:_fetch_stats] self.update_peers: %s" % repr(err))
+                logger.error("[agent:_fetch_stats] self.update_peers: %s" % repr(err))
 
             # FIXME:
             # this is really only needed on the first run, to populate historical data
@@ -364,7 +365,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         try:
             plugins.on('bcap_%s' % re.sub(r"[^a-z0-9_]+", "_", jmsg['tag'].lower()), self, jmsg)
         except Exception as err:
-            logging.error("Processing event: %s" % err)
+            logger.error("Processing event: %s" % err)
 
         if jmsg['tag'] == 'wifi.client.handshake':
             filename = jmsg['data']['file']
@@ -383,16 +384,19 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             pwnd_ap = None  # name or mac addr
             ap_and_station = self._find_ap_sta_in(sta_mac, ap_mac, self.session())
             if ap_and_station is None:
-                logging.warning("!!! captured new handshake: %s !!!", key)
                 pwnd_ap = ap_mac
+
+                logger.warning("!!! captured new handshake: %s !!!", key)
                 plugins.on('handshake', self, filename, ap_mac, sta_mac)
             else:
                 (ap, sta) = ap_and_station
                 pwnd_ap = ap['hostname'] if ap['hostname'] != '' and ap[
                     'hostname'] != '<hidden>' else ap_mac
-                logging.warning(
-                    "!!! captured new handshake on channel %d, %d dBm: %s (%s) -> %s [%s (%s)] !!!",
-                    ap['channel'], ap['rssi'], sta['mac'], sta['vendor'], ap['hostname'], ap['mac'], ap['vendor'])
+
+                logger.warning(f"CH {ap['channel']}: "\
+                            f"!!! captured new handshake, {ap['rssi']} dBm: "\
+                            f"{sta['mac']} ({sta['vendor']}) -> "\
+                            f"{ap['hostname']} [{ap['mac']} ({ap['vendor']})] !!!")
                 plugins.on('handshake', self, filename, ap, sta)
 
             self.track_handshake(new=1, ap_mac_or_name=pwnd_ap)
@@ -402,13 +406,13 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self.run('events.clear')
 
         while True:
-            logging.debug("[agent:_event_poller] polling events ...")
+            logger.debug("[agent:_event_poller] polling events ...")
             try:
                 loop.create_task(self.start_websocket(self._on_event))
                 loop.run_forever()
-                logging.info("[agent:_event_poller] loop loop loop")
+                logger.info("[agent:_event_poller] loop loop loop")
             except Exception as ex:
-                logging.error("[agent:_event_poller] Error while polling via websocket (%s)", ex)
+                logger.error("[agent:_event_poller] Error while polling via websocket (%s)", ex)
 
     def start_event_polling(self):
         # start a thread and pass in the mainloop
@@ -452,7 +456,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     
     def _throttle_if_needed(self, throttle_type):
         if throttle_type not in self._config['personality']:
-            logging.warning(f"Unknown throttle_type '{throttle_type}")
+            logger.warning(f"Unknown throttle_type '{throttle_type}")
             return 0
 
         throttle = self._config['personality'][throttle_type]
@@ -499,58 +503,61 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def associate(self, ap):
         if self.is_stale():
-            logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
+            logger.debug("recon is stale, skipping assoc(%s)", ap['mac'])
             raise StaleReconError()
 
         if not self._should_assoc(ap['mac']):
-            logging.info(f"skipping assoc({ap['mac']})")
+            logger.info(f"skipping assoc({ap['mac']})")
             return
 
         self._view.on_assoc(ap)
         try:
-            logging.info("sending association frame to %s (%s %s) on channel %d [%d clients], %d dBm...",
-                            ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], len(ap['clients']), ap['rssi'])
+            logger.info(f"CH {ap['channel']}: "\
+                        f"sending association frame to {ap['hostname']} ({ap['mac']} {ap['vendor']}) "\
+                        f"[{len(ap['clients'])} clients], "\
+                        f"{ap['rssi']} dBm ...")
             self.run('wifi.assoc %s' % ap['mac'])
             self.track_assoc(ap['mac'])
         except BettercapUnknownBSSIDError as e:
             self._on_miss(e.args)   # ap['mac'] is expected to be in `e.args`
         except BettercapInterfaceNotFoundError as e:
-            logging.critical(e)
+            logger.critical(e)
         except BettercapError as e:
-            logging.error(e)
+            logger.error(e)
 
         plugins.on('association', self, ap)
         self._throttle_if_needed('throttle_a')
 
     def deauth(self, ap, sta):
         if self.is_stale():
-            logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
+            logger.debug("recon is stale, skipping deauth(%s)", sta['mac'])
             raise StaleReconError()
 
         if not self._should_deauth(sta['mac']):
-            logging.info(f"skipping deauth({sta['mac']})")
+            logger.info(f"skipping deauth({sta['mac']})")
             return
 
         self._view.on_deauth(sta)
         try:
-            logging.info("deauthing %s (%s) from %s (%s %s) on channel %d, %d dBm ...",
-                            sta['mac'], sta['vendor'], ap['hostname'], ap['mac'], ap['vendor'], ap['channel'],
-                            ap['rssi'])
+            logger.info(f"CH {ap['channel']}: "\
+                        f"deauthing {sta['mac']} ({sta['vendor']}) "\
+                        f"from {ap['hostname']} ({ap['mac']} {ap['vendor']}), "\
+                        f"{ap['rssi']} dBm ...")
             self.run('wifi.deauth %s' % sta['mac'])
             self.track_deauth(sta['mac'])
         except BettercapUnknownBSSIDError as e:
             self._on_miss(e.args)   # sta['mac'] is expected to be in `e.args`
         except BettercapInterfaceNotFoundError as e:
-            logging.critical(e)
+            logger.critical(e)
         except BettercapError as e:
-            logging.error(e)
+            logger.error(e)
 
         plugins.on('deauthentication', self, ap, sta)
         self._throttle_if_needed('throttle_d')
 
     def observe_current_channel(self, verbose=True):
         if self._is_recon_channel_hopping():
-            logging.error("observe_current_channel is called when "\
+            logger.error("observe_current_channel is called when "\
                           "recon_channel_hopping is in progress")
             return
 
@@ -571,21 +578,21 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         if wait > 0:
             if verbose:
-                logging.info(f"observing channel {self._current_channel} for {wait}s")
+                logger.info(f"CH {self._current_channel}: observing for {wait}s")
             else:
-                logging.debug(f"observing channel {self._current_channel} for {wait}s")
+                logger.debug(f"CH {self._current_channel}: observing for {wait}s")
             self.set_observing_channel(wait)
         else:
-            logging.warning(f"not observing channel {self._current_channel} "\
+            logger.warning(f"not observing channel {self._current_channel} "\
                              "because no successful deauths or assocs have been "\
                              "previously made in this epoch")
 
     def set_channel(self, channel, verbose=True):
         if self.is_stale():
-            logging.debug("recon is stale, skipping set_channel(%d)", channel)
+            logger.debug("recon is stale, skipping set_channel(%d)", channel)
             raise StaleReconError()
         if channel == self._current_channel:
-            logging.info(f"already on channel {channel}")
+            logger.info(f"already on channel {channel}")
             return
 
         # Hop to the new channel
@@ -594,7 +601,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self.run('wifi.recon.channel %d' % channel)
             self._current_channel = channel
 
-            logging.info("CHANNEL %d", channel)
+            if channel in self._access_points_by_channel:
+                logger.info(f"CHANNEL {channel}: {len(self._access_points_by_channel[channel])} APs")
+            else:
+                logger.info(f"CHANNEL {channel}")
 
             self._epoch.track(hop=True)
             self._view.set('channel', '%d' % channel)
@@ -603,7 +613,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             plugins.on('channel_hop', self, channel)
 
         except Exception as e:
-            logging.error("Error while setting channel (%s)", e)
+            logger.error("Error while setting channel (%s)", e)
             raise e
 
     def set_policy(self, new_params):
@@ -611,15 +621,15 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         This method is to be called by any policy maker (AI, auto-tune, etc.)
         to apply the policy
         """
-        logging.info("setting new policy:")
+        logger.info("setting new policy:")
         for name, value in new_params.items():
             if name in self._config['personality']:
                 curr_value = self._config['personality'][name]
                 if curr_value != value:
-                    logging.info("! %s: %s -> %s" % (name, curr_value, value))
+                    logger.info("! %s: %s -> %s" % (name, curr_value, value))
                     self._config['personality'][name] = value
             else:
-                logging.error("param %s not in personality configuration!" % name)
+                logger.error("param %s not in personality configuration!" % name)
 
         # apply to bettercap
         self.run('set wifi.ap.ttl %d' % self._config['personality']['ap_ttl'])
@@ -630,4 +640,4 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         if enabled:
             start_what()
         else:
-            logging.info(f"{name} disabled")
+            logger.info(f"{name} disabled")
