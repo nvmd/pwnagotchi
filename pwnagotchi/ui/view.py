@@ -378,9 +378,9 @@ class View(object):
         self.set('status', self._voice.on_uploading(to))
         self.update(force=True)
 
-    def on_rebooting(self):
+    def on_rebooting(self, reason_msg=None):
         self.set('face', faces.BROKEN)
-        self.set('status', self._voice.on_rebooting())
+        self.set('status', self._voice.on_rebooting(reason_msg))
         self.update(force=True, freeze=True)
 
     def on_custom(self, text):

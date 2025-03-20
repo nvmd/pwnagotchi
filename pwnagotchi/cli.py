@@ -346,7 +346,7 @@ def pwnagotchi_cli():
 
     def usr1_handler(*unused):
         logging.info('Received USR1 signal. Restart process ...')
-        agent._restart("MANU" if args.do_manual else "AUTO")
+        agent._restart("MANU" if args.do_manual else "AUTO", reason_msg="USR1 signal")
 
     signal.signal(signal.SIGUSR1, usr1_handler)
 

@@ -289,14 +289,14 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def _update_peers(self):
         self._view.set_closest_peer(self._closest_peer, len(self._peers))
 
-    def _reboot(self):
+    def _reboot(self, reason_msg=None, requested_by=None):
         self.set_rebooting()
         self._save_recovery_data()
-        pwnagotchi.reboot()
+        pwnagotchi.reboot(reason_msg=reason_msg, requested_by=requested_by)
 
-    def _restart(self, mode='AUTO'):
+    def _restart(self, mode='AUTO', reason_msg=None, requested_by=None):
         self._save_recovery_data()
-        pwnagotchi.restart(mode)
+        pwnagotchi.restart(mode, reason_msg=reason_msg, requested_by=requested_by)
 
     def _save_recovery_data(self):
         logger.info("writing recovery data to %s ...", self.recovery_file)

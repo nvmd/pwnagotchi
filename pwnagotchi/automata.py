@@ -106,8 +106,8 @@ class Automata(object):
         self._view.on_excited()
         plugins.on('excited', self)
 
-    def set_rebooting(self):
-        self._view.on_rebooting()
+    def set_rebooting(self, reason_msg=None):
+        self._view.on_rebooting(reason_msg=reason_msg)
         plugins.on('rebooting', self)
 
     def sleep_for(self, t):
@@ -152,5 +152,5 @@ class Automata(object):
         plugins.on('epoch', self, self._epoch.epoch - 1, self._epoch.data())
         if self._epoch.blind_for >= self._config['main']['mon_max_blind_epochs']:
             logging.critical("%d epochs without visible access points -> restarting ...", self._epoch.blind_for)
-            self._restart()
+            self._restart(reason_msg=f"blindness {self._epoch.blind_for} epochs", requested_by=__name__)
             self._epoch.blind_for = 0

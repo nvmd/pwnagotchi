@@ -207,7 +207,7 @@ class Handler:
             return render_template('status.html', title=pwnagotchi.name(), go_back_after=60,
                                    message='Shutting down ...')
         finally:
-            _thread.start_new_thread(pwnagotchi.shutdown, ())
+            _thread.start_new_thread(pwnagotchi.shutdown, ("Web user's request", __name__))
 
     # serve a message and reboot the unit
     def reboot(self):
@@ -215,7 +215,7 @@ class Handler:
               return render_template('status.html', title=pwnagotchi.name(), go_back_after=60,
                                      message='Rebooting ...')
           finally:
-              _thread.start_new_thread(pwnagotchi.reboot, ())
+              _thread.start_new_thread(pwnagotchi.reboot, (None, "Web user's request", __name__))
 
     # serve a message and restart the unit in the other mode
     def restart(self):
@@ -227,7 +227,7 @@ class Handler:
             return render_template('status.html', title=pwnagotchi.name(), go_back_after=30,
                                    message='Restarting in %s mode ...' % mode)
         finally:
-            _thread.start_new_thread(pwnagotchi.restart, (mode,))
+            _thread.start_new_thread(pwnagotchi.restart, (mode, "Web user's request", __name__))
 
     # serve the PNG file with the display image
     def ui(self):

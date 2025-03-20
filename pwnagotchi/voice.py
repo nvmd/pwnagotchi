@@ -165,8 +165,10 @@ class Voice:
         s = 's' if count > 1 else ''
         return self._('You have {count} new message{plural}!').format(count=count, plural=s)
 
-    def on_rebooting(self):
-        return self._("Oops, something went wrong ... Rebooting ...")
+    def on_rebooting(self, reason_msg):
+        if reason_msg is not None:
+            return self._(f"Rebooting, {reason_msg}...")    
+        return self._("Oops, something went wrong... Rebooting...")
 
     def on_uploading(self, to):
         return self._("Uploading data to {to} ...").format(to=to)

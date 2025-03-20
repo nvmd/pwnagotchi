@@ -39,7 +39,7 @@ def set_name(new_name):
             fp.write(patched)
 
         os.system("hostname '%s'" % new_name)
-        reboot()
+        reboot(reason_msg="Setting name")
 
 
 def name():
@@ -107,8 +107,8 @@ def temperature(celsius=True):
     return c if celsius else ((c * (9 / 5)) + 32)
 
 
-def shutdown():
-    logging.warning("shutting down ...")
+def shutdown(reason_msg=None, requested_by=None):
+    logging.warning(f"shutting down, reason={reason_msg}, by={requested_by}...")
 
     from pwnagotchi.ui import view
     if view.ROOT:
@@ -126,8 +126,8 @@ def shutdown():
     os.system("halt")
 
 
-def restart(mode):
-    logging.warning("restarting in %s mode ...", mode)
+def restart(mode, reason_msg=None, requested_by=None):
+    logging.warning(f"restarting in {mode} mode, reason={reason_msg}, by={requested_by}...")
     mode = mode.upper()
     if mode == 'AUTO':
         os.system("touch /root/.pwnagotchi-auto")
@@ -142,16 +142,16 @@ def restart(mode):
     os._exit(2) # kill all threads
 
 
-def reboot(mode=None):
+def reboot(mode=None, reason_msg=None, requested_by=None):
     if mode is not None:
         mode = mode.upper()
-        logging.warning("rebooting in %s mode ...", mode)
+        logging.warning(f"rebooting in {mode} mode, reason={reason_msg}, by={requested_by}...")
     else:
-        logging.warning("rebooting ...")
+        logging.warning(f"rebooting, reason={reason_msg}, by={requested_by}...")
 
     from pwnagotchi.ui import view
     if view.ROOT:
-        view.ROOT.on_rebooting()
+        view.ROOT.on_rebooting(reason_msg=reason_msg)
         # give it some time to refresh the ui
         time.sleep(10)
 

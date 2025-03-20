@@ -94,7 +94,7 @@ def run_task(name, options):
         systemctl("daemon-reload")
         systemctl("enable", "switcher-reboot.timer")
         systemctl("enable", task_service_name)
-        reboot()
+        reboot(reason_msg="switcher-reboot task", requested_by=__name__)
         return
 
     systemctl("daemon-reload")

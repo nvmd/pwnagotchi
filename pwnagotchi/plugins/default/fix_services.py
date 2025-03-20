@@ -212,7 +212,7 @@ class FixServices(plugins.Plugin):
                                     display, {"status": "Restarting pwnagotchi!",
                                               "face": faces.COOL},
                                     True)
-        agent._restart("AUTO")
+        agent._restart("AUTO", reason_msg="Remedy", requested_by=__name__)
 
     def _remedy_bettercap_recon_off_on(self, agent: Client, display: View, fail_callback=None, exc_callback=None):
         try:
@@ -362,11 +362,13 @@ class FixServices(plugins.Plugin):
                     pass
 
                 tries = tries + 1
-                if tries < 3:
+                max_tries = 3
+                if tries < max_tries:
                     logger.debug("wlan0mon didn't make it. trying again")
                 else:
                     logger.debug("wlan0mon loading failed, no choice but to reboot ..")
-                    agent._reboot()
+                    agent._reboot(reason_msg=f"Couldn't load wlan0mon in {max_tries} attempts",
+                                  requested_by=__name__)
 
             # exited the loop, so hopefully it loaded
             if tries < 3:
@@ -397,7 +399,7 @@ class FixServices(plugins.Plugin):
 
             except Exception as err:
                 logger.error("[wifi.recon on] %s" % repr(err))
-                agent._reboot()
+                agent._reboot(reason_msg="Can't enable wifi.recon", requested_by=__name__)
 
     # called to setup the ui elements
     def on_ui_setup(self, ui):

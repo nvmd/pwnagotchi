@@ -110,7 +110,7 @@ class GdriveSync(plugins.Plugin):
                     self.ready = True
                     logging.info("[gdrivesync] loaded")
                     # Restart so we can start opwngrid with the backup id
-                    pwnagotchi.restart("AUTO")
+                    pwnagotchi.restart("AUTO", reason_msg="to start OPwnGrid with backup id", requested_by=__name__)
 
                 # all set, gdriveSync is ready to run
             self.ready = True
