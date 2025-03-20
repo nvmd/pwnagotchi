@@ -49,6 +49,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         # APs from the last recon
         self._access_points = []
         # cache computed values from the latest AP recon and channel hop
+        self._access_points_by_channel = {}
         self._tot_aps = 0
         self._tot_stas = 0
         self._aps_on_channel = 0
@@ -178,16 +179,32 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         self.set_conducting_recon(recon_time)
 
-    def set_access_points(self, aps):
+    def _set_access_points(self, aps):
         self._access_points = aps
 
+        # Group APs by channel
+        channels = self._config['personality']['channels']
+        grouped = {}
+        for ap in aps:
+            ch = ap['channel']
+            # if we're sticking to a channel, skip anything
+            # which is not on that channel
+            if channels and ch not in channels:
+                continue
+            if ch not in grouped:
+                grouped[ch] = [ap]
+            else:
+                grouped[ch].append(ap)
+        self._access_points_by_channel = grouped
+
+        # call event subscribers
         self._view_update_aps_sta_total(aps)
         plugins.on('wifi_update', self, aps)
 
         self._epoch.observe(aps, list(self._peers.values()))
         return self._access_points
 
-    def get_access_points(self):
+    def _fetch_access_points(self):
         whitelist = self._config['main']['whitelist']
         aps = []
         try:
@@ -207,7 +224,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             logging.exception("Error while getting access points (%s)", e)
 
         aps.sort(key=lambda ap: ap['channel'])
-        return self.set_access_points(aps)
+        return self._set_access_points(aps)
 
     def get_total_aps(self):
         return self._tot_aps
@@ -219,25 +236,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         return self._current_channel
 
     def get_access_points_by_channel(self):
-        aps = self.get_access_points()
-        channels = self._config['personality']['channels']
-        grouped = {}
+        self._fetch_access_points()
 
-        # group by channel
-        for ap in aps:
-            ch = ap['channel']
-            # if we're sticking to a channel, skip anything
-            # which is not on that channel
-            if channels and ch not in channels:
-                continue
-
-            if ch not in grouped:
-                grouped[ch] = [ap]
-            else:
-                grouped[ch].append(ap)
-
-        # sort by more populated channels
-        return sorted(grouped.items(), key=lambda kv: len(kv[1]), reverse=True)
+        # sort by more populated channels(dict -> list[(ch,aps)])
+        return sorted(self._access_points_by_channel.items(),
+                      key=lambda kv: len(kv[1]),
+                      reverse=True)
 
     def _find_ap_sta_in(self, station_mac, ap_mac, session):
         for ap in session['wifi']['aps']:
@@ -249,10 +253,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         return None
     
     def _view_update_aps_sta_total(self, aps):
-        logging.info("new list of APs")
-
         total_aps = len(aps)
         total_stas = sum(len(ap['clients']) for ap in aps)
+
+        logging.info(f"Wi-Fi observation: {total_aps} APs, {total_stas} STAs")
 
         self._tot_aps = total_aps
         self._tot_stas = total_stas
