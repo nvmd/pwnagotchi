@@ -16,7 +16,7 @@ from pwnagotchi.identity import KeyPair
 from pwnagotchi.ui.web.server import Server
 from pwnagotchi.automata import Automata
 from pwnagotchi.log import LastSession
-from pwnagotchi.bettercap import Client, BettercapConnectionError, BettercapError
+from pwnagotchi.bettercap import Client, BettercapConnectionError, BettercapError, BettercapUnknownBSSIDError, BettercapInterfaceNotFoundError
 from pwnagotchi.mesh.utils import AsyncAdvertiser
 from pwnagotchi.ai.train import AsyncTrainer
 
@@ -508,8 +508,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                             ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], len(ap['clients']), ap['rssi'])
             self.run('wifi.assoc %s' % ap['mac'])
             self.track_assoc(ap['mac'])
+        except BettercapUnknownBSSIDError as e:
+            self._on_miss(e.args)   # ap['mac'] is expected to be in `e.args`
+        except BettercapInterfaceNotFoundError as e:
+            logging.critical(e)
         except BettercapError as e:
-            self._on_error(ap['mac'], e)
+            logging.error(e)
 
         plugins.on('association', self, ap)
         self._throttle_if_needed('throttle_a')
@@ -530,8 +534,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                             ap['rssi'])
             self.run('wifi.deauth %s' % sta['mac'])
             self.track_deauth(sta['mac'])
+        except BettercapUnknownBSSIDError as e:
+            self._on_miss(e.args)   # sta['mac'] is expected to be in `e.args`
+        except BettercapInterfaceNotFoundError as e:
+            logging.critical(e)
         except BettercapError as e:
-            self._on_error(sta['mac'], e)
+            logging.error(e)
 
         plugins.on('deauthentication', self, ap, sta)
         self._throttle_if_needed('throttle_d')

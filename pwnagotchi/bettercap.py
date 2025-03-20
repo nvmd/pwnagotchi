@@ -28,15 +28,41 @@ def decode(r, verbose_errors=True):
     try:
         return r.json()
     except Exception as e:
-        if r.status_code == 200:
-            logger.error("error while decoding json: error='%s' resp='%s'" % (e, r.text))
-        else:
-            err = "error %d: %s" % (r.status_code, r.text.strip())
-            if verbose_errors:
-                logger.info(err)
-            raise BettercapError(err)
-        return r.text
+        error_text = r.text.strip()
+        error_msg = f"error {r.status_code}: {error_text}"
 
+        match r.status_code:
+            case 200:
+                logger.error("error while decoding json: error='%s' resp='%s'" % (e, r.text))
+                return r.text
+            case 400:
+                error_text = r.text.strip()
+                if 'is an unknown BSSID' in error_text:
+                    # 50:c7:bf:2e:d3:37 is an unknown BSSID or it is in the association skip list.
+                    bssid = error_text[0:error_text.find(" is an unknown BSSID")]
+                    raise BettercapUnknownBSSIDError(bssid)
+                elif 'could not find interface' in error_text:
+                    # could not find interface wlan0mon: no interface matching 'wlan0mon' found.
+
+                    # NOTE: we still need this (error_msg) particular log line, 
+                    # so that fix_services can pick it up
+                    # This obviously should be handled in a less roundabout way
+                    logger.critical(error_msg)
+
+                    # TODO:
+                    # * run the monstart command to restart wlan0mon
+                    # * restart bettercap?
+                    # FIXME: replace error_text with interface name
+                    raise BettercapInterfaceNotFoundError(error_text)
+                elif 'is not running' in error_text:    #FIXME: this check seems to be too general
+                    # module wifi is not running
+                    logger.critical(error_msg)
+                    # FIXME: replace error_text with module name
+                    raise BettercapModuleNotRunningError(error_text)
+
+        if verbose_errors:
+            logger.info(error_msg)
+        raise BettercapError(error_msg)
 
 class Client(object):
     def __init__(self, hostname='localhost', scheme='http', port=8081,
@@ -106,4 +132,10 @@ class Client(object):
 class BettercapConnectionError(Exception):
     pass
 class BettercapError(Exception):
+    pass
+class BettercapUnknownBSSIDError(BettercapError):
+    pass
+class BettercapInterfaceNotFoundError(BettercapError):
+    pass
+class BettercapModuleNotRunningError(BettercapError):
     pass
