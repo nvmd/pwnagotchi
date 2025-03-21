@@ -566,6 +566,24 @@ class WifiInfo(Enum):
     CHANNEL = 3
     RSSI = 4
 
+def get_vendor(ap_or_sta):
+    # sometimes vendor is empty, but there' other fields when we can get
+    # similar metadata
+    def append_if_in(key, obj, list):
+        if key in obj:
+            list.append(obj[key])
+        
+    if ap_or_sta['vendor'] != '':
+        return ap_or_sta['vendor']
+    vendor = []
+
+    if 'wps' in ap_or_sta:
+        obj = ap_or_sta['wps']
+        append_if_in('Manufacturer', obj, vendor)
+        append_if_in('Model Name', obj, vendor)
+        append_if_in('Model Number', obj, vendor)
+
+    return '/'.join(vendor)
 
 class FieldNotFoundError(Exception):
     pass

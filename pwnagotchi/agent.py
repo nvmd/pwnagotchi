@@ -395,8 +395,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
                 logger.warning(f"CH {ap['channel']}: "\
                             f"!!! captured new handshake, {ap['rssi']} dBm: "\
-                            f"{sta['mac']} ({sta['vendor']}) -> "\
-                            f"{ap['hostname']} [{ap['mac']} ({ap['vendor']})] !!!")
+                            f"{sta['mac']} ({utils.get_vendor(sta)}) -> "\
+                            f"{ap['hostname']} [{ap['mac']} ({utils.get_vendor(ap)})] !!!")
                 plugins.on('handshake', self, filename, ap, sta)
 
             self.track_handshake(new=1, ap_mac_or_name=pwnd_ap)
@@ -513,7 +513,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._view.on_assoc(ap)
         try:
             logger.info(f"CH {ap['channel']}: "\
-                        f"sending association frame to {ap['hostname']} ({ap['mac']} {ap['vendor']}) "\
+                        f"sending association frame to {ap['hostname']} ({ap['mac']} {utils.get_vendor(ap)}) "\
                         f"[{len(ap['clients'])} clients], "\
                         f"{ap['rssi']} dBm ...")
             self.run('wifi.assoc %s' % ap['mac'])
@@ -540,8 +540,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._view.on_deauth(sta)
         try:
             logger.info(f"CH {ap['channel']}: "\
-                        f"deauthing {sta['mac']} ({sta['vendor']}) "\
-                        f"from {ap['hostname']} ({ap['mac']} {ap['vendor']}), "\
+                        f"deauthing {sta['mac']} ({utils.get_vendor(sta)}) "\
+                        f"from {ap['hostname']} ({ap['mac']} {utils.get_vendor(ap)}), "\
                         f"{ap['rssi']} dBm ...")
             self.run('wifi.deauth %s' % sta['mac'])
             self.track_deauth(sta['mac'])
