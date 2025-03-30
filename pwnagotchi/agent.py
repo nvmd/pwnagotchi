@@ -519,7 +519,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self.run('wifi.assoc %s' % ap['mac'])
             self.track_assoc(ap['mac'])
         except BettercapUnknownBSSIDError as e:
-            self._on_miss(e.args)   # ap['mac'] is expected to be in `e.args`
+            self._on_miss(e.args[0])   # ap['mac'] is expected to be in `e.args[0]`
         except BettercapInterfaceNotFoundError as e:
             logger.critical(e)
         except BettercapError as e:
@@ -546,7 +546,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self.run('wifi.deauth %s' % sta['mac'])
             self.track_deauth(sta['mac'])
         except BettercapUnknownBSSIDError as e:
-            self._on_miss(e.args)   # sta['mac'] is expected to be in `e.args`
+            self._on_miss(e.args[0])   # ap['mac'] is expected to be in `e.args[0]`
         except BettercapInterfaceNotFoundError as e:
             logger.critical(e)
         except BettercapError as e:
