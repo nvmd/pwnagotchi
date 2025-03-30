@@ -3,6 +3,7 @@ import requests
 import websockets
 import asyncio
 import random
+import re
 
 from requests.auth import HTTPBasicAuth
 from requests.adapters import HTTPAdapter
@@ -24,45 +25,115 @@ websockets.connect.BACKOFF_MIN_DELAY = min_sleep
 websockets.connect.BACKOFF_MAX_DELAY = max_sleep
 
 
-def decode(r, verbose_errors=True):
+def decode(resp, verbose_errors=True):
     try:
-        return r.json()
+        return resp.json()
     except Exception as e:
-        error_text = r.text.strip()
-        error_msg = f"error {r.status_code}: {error_text}"
+        error_text = resp.text.strip()
+        error_msg = f"error {resp.status_code}: {error_text}"
 
-        match r.status_code:
+        match resp.status_code:
             case 200:
-                logger.error("error while decoding json: error='%s' resp='%s'" % (e, r.text))
-                return r.text
+                logger.error("error while decoding json: error='%s' resp='%s'" % (e, resp.text))
+                return resp.text
             case 400:
-                error_text = r.text.strip()
                 if 'is an unknown BSSID' in error_text:
-                    # 50:c7:bf:2e:d3:37 is an unknown BSSID or it is in the association skip list.
-                    bssid = error_text[0:error_text.find(" is an unknown BSSID")]
+                    # 50:c7:de:ee:d3:47 is an unknown BSSID or it is in the association skip list.
+                    bssid = None
+                    try:
+                        bssid = extract_error_info_bssid(error_text)
+                    except Exception as e:
+                        logger.error(f"{e}")
                     raise BettercapUnknownBSSIDError(bssid)
                 elif 'could not find interface' in error_text:
-                    # could not find interface wlan0mon: no interface matching 'wlan0mon' found.
+                    # error_text = "could not find interface wlan0mon: no interface matching 'wlan0mon' found.
 
                     # NOTE: we still need this (error_msg) particular log line, 
                     # so that fix_services can pick it up
                     # This obviously should be handled in a less roundabout way
                     logger.critical(error_msg)
 
+                    interface = None
+                    reason = None
+                    try:
+                        (interface, reason) = extract_error_info_interface(error_text)
+                    except Exception as e:
+                        logger.error(f"{e}")
+
                     # TODO:
                     # * run the monstart command to restart wlan0mon
                     # * restart bettercap?
-                    # FIXME: replace error_text with interface name
-                    raise BettercapInterfaceNotFoundError(error_text)
-                elif 'is not running' in error_text:    #FIXME: this check seems to be too general
+                    raise BettercapInterfaceNotFoundError(interface, reason)
+                elif 'is not running' in error_text:
                     # module wifi is not running
                     logger.critical(error_msg)
-                    # FIXME: replace error_text with module name
-                    raise BettercapModuleNotRunningError(error_text)
+
+                    module_name = None
+                    try:
+                        module_name = extract_error_info_module(error_text)
+                    except Exception as e:
+                        logger.error(f"{e}")
+
+                    raise BettercapModuleNotRunningError(module_name)
 
         if verbose_errors:
             logger.info(error_msg)
         raise BettercapError(error_msg)
+
+def extract_error_info_bssid(error_text: str) -> str:
+    error_text_cleared = error_text.strip()
+    bssid = None
+
+    idx = error_text_cleared.find("is an unknown BSSID")
+    if idx == -1:
+        print(f"idx = {idx}")
+        raise ValueError(f"error message '{error_text}' is malformed")
+
+    bssid = error_text_cleared[0:idx].strip()
+    if len(bssid) != 17:
+        if bssid == '':
+            raise ValueError("no BSSID")
+        raise ValueError(f"invalid BSSID {bssid}")
+
+    return bssid
+
+def extract_error_info_module(error_text: str) -> str:
+    error_text_cleared = error_text.strip()
+    # most probably one of the precomputed values will suffice
+    match error_text_cleared:
+        case "module wifi is not running":
+            return "wifi"
+
+    module_name = None
+    try:
+        pattern = re.compile(r'module (?P<module>[^\s]*) is not running')
+        match = pattern.search(error_text_cleared)
+        module_name = match.group('module').strip()
+    except Exception as e:
+        raise ValueError(f"error message '{error_text}' is malformed") from e
+    return module_name
+
+def extract_error_info_interface(error_text: str) -> tuple[str, str]:
+    error_text_cleared = error_text.strip()
+    # most probably one of the precomputed values will suffice
+    match error_text_cleared:
+        case "could not find interface wlan0mon: no interface matching 'wlan0mon' found.":
+            return ("wlan0mon", "no interface matching 'wlan0mon' found.")
+
+    interface = None
+    reason = None
+    try:
+        # assuming <interface> is mandatory and <reason> is optional
+        pattern = re.compile(r'could not find interface (?P<interface>[^:\s]+)(: (?P<reason>.*))*')
+        match = pattern.search(error_text_cleared)
+        interface = match.group('interface').strip()
+        reason_match = match.group('reason')
+        reason = None
+        if reason_match:
+            reason = reason_match.strip()
+    except Exception as e:
+        raise ValueError(f"error message '{error_text}' is malformed") from e
+    return (interface, reason)
 
 class Client(object):
     def __init__(self, hostname='localhost', scheme='http', port=8081,

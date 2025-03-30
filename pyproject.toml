@@ -47,3 +47,8 @@ Download = "https://github.com/nvmd/pwnagotchi/releases/latest"
 
 [project.scripts]
 pwnagotchi = "pwnagotchi.cli:pwnagotchi_cli"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
