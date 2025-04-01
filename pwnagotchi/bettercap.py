@@ -75,6 +75,9 @@ def decode(resp, verbose_errors=True):
                         logger.error(f"{e}")
 
                     raise BettercapModuleNotRunningError(module_name)
+            case 405:
+                logger.error(error_msg)
+                raise BettercapWrongAPICall(error_msg)
 
         if verbose_errors:
             logger.info(error_msg)
@@ -156,10 +159,23 @@ class Client(object):
     #       sub="ble" for "session/ble"
     def session(self, sub=None):
         try:
-            r = self.http.get("%s/%s" % (self.url, "session" + (f"/{sub}" if sub else "")))
+            endpoint = "session" + (f"/{sub}" if sub else "")
+            r = self.http.get("%s/%s" % (self.url, endpoint))
             return decode(r)
+        except BettercapError as e:
+            raise BettercapError(f"Error getting '{endpoint}': {e}") from e
         except Exception as e:
-            raise BettercapConnectionError(f"Error getting session {sub}") from e
+            raise BettercapConnectionError(f"Error getting {endpoint}: {e}") from e
+
+    def run(self, command, verbose_errors=True):
+        try:
+            endpoint = "session"
+            r = self.http.post("%s/%s" % (self.url, endpoint), json={'cmd': command})
+            return decode(r, verbose_errors=verbose_errors)
+        except BettercapError:
+            raise
+        except Exception as e:
+            raise BettercapConnectionError(f"Error executing command '{command}': {e}") from e
 
     async def start_websocket(self, consumer):
         s = "%s/events" % self.websocket
@@ -192,15 +208,6 @@ class Client(object):
                 # TODO: recovery procedure.
                 # can't just reraise an exception because we're not in the main thread
 
-    def run(self, command, verbose_errors=True):
-        try:
-            r = self.http.post("%s/session" % self.url, json={'cmd': command})
-            return decode(r, verbose_errors=verbose_errors)
-        except BettercapError as e:
-            raise e
-        except Exception as e:
-            raise BettercapConnectionError(f"Error while executing command '{command}'") from e
-
 class BettercapConnectionError(Exception):
     pass
 class BettercapError(Exception):
@@ -210,4 +217,6 @@ class BettercapUnknownBSSIDError(BettercapError):
 class BettercapInterfaceNotFoundError(BettercapError):
     pass
 class BettercapModuleNotRunningError(BettercapError):
+    pass
+class BettercapWrongAPICall(BettercapError):
     pass
