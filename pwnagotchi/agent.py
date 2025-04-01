@@ -51,10 +51,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._access_points = []
         # cache computed values from the latest AP recon and channel hop
         self._access_points_by_channel = {}
-        self._tot_aps = 0
-        self._tot_stas = 0
-        self._aps_on_channel = 0
-        self._stas_on_channel = 0
+        self._reset_recon_caches()
 
         self._history = {}  # MAC addr -> number of interactions
         self._handshakes = {}
@@ -198,8 +195,11 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 grouped[ch].append(ap)
         self._access_points_by_channel = grouped
 
+        # reset caches
+        self._reset_recon_caches()
+
         # call event subscribers
-        self._view_update_aps_sta_total(aps)
+        self._view_update_aps_stas(self.get_current_channel())
         plugins.on('wifi_update', self, aps)
 
         self._epoch.observe(aps, list(self._peers.values()))
@@ -227,11 +227,35 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         aps.sort(key=lambda ap: ap['channel'])
         return self._set_access_points(aps)
 
-    def get_total_aps(self):
-        return self._tot_aps
+    def _reset_recon_caches(self):
+        self._tot_aps = None
+        self._tot_stas = None
+        self._aps_stas_on_channel = {}
 
-    def get_aps_on_channel(self):
-        return self._aps_on_channel
+    def get_total_aps_stas(self) -> tuple[int,int]:
+        if not self._tot_aps or not self._tot_stas:
+            aps = self._access_points
+            total_aps = len(aps)
+            total_stas = sum(len(ap['clients']) for ap in aps)
+            self._tot_aps = total_aps
+            self._tot_stas = total_stas
+
+        return (self._tot_aps, self._tot_stas)
+
+    def get_total_aps_stas_on_channel(self, channel: int) -> tuple[int,int] | None:
+        if channel not in self._access_points_by_channel:
+            return None
+
+        if channel not in self._aps_stas_on_channel:
+            aps = self._access_points
+            # FIXME: reuse already computed _access_points_by_channel
+            # aps_ch = len(self._access_points_by_channel[channel])
+            aps_ch = len([ap for ap in aps if ap['channel'] == channel])
+            stas_ch = sum(
+                [len(ap['clients']) for ap in aps if ap['channel'] == channel])
+            self._aps_stas_on_channel[channel] = (aps_ch, stas_ch)
+
+        return self._aps_stas_on_channel[channel]
 
     def get_current_channel(self) -> int | None:
         return self._current_channel
@@ -252,27 +276,19 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                         return ap, sta
                 return ap, {'mac': station_mac, 'vendor': ''}
         return None
-    
-    def _view_update_aps_sta_total(self, aps):
-        total_aps = len(aps)
-        total_stas = sum(len(ap['clients']) for ap in aps)
 
-        logger.info(f"Wi-Fi observation: {total_aps} APs, {total_stas} STAs")
-
-        self._tot_aps = total_aps
-        self._tot_stas = total_stas
-        self._view.set('aps', '%d' % total_aps)
-        self._view.set('sta', '%d' % total_stas)
-        
-    def _view_update_aps_sta_ch(self, channel):
-        aps_ch = len([ap for ap in self._access_points if ap['channel'] == channel])
-        stas_ch = sum(
-            [len(ap['clients']) for ap in self._access_points if ap['channel'] == channel])
-
-        self._aps_on_channel = aps_ch
-        self._stas_on_channel = stas_ch
-        self._view.set('aps', '%d (%d)' % (aps_ch, self._tot_aps))
-        self._view.set('sta', '%d (%d)' % (stas_ch, self._tot_stas))
+    def _view_update_aps_stas(self, channel: int | None):
+        (total_aps, total_stas) = self.get_total_aps_stas()
+        # when called with `current_channel`, it is None during recon,
+        # so no per-channel stats available
+        if channel:
+            (aps_ch, stas_ch) = self.get_total_aps_stas_on_channel(channel)
+            self._view.set('aps', '%d (%d)' % (aps_ch, total_aps))
+            self._view.set('sta', '%d (%d)' % (stas_ch, total_stas))
+        else:
+            logger.info(f"Wi-Fi observation: {total_aps} APs, {total_stas} STAs")
+            self._view.set('aps', '%d' % total_aps)
+            self._view.set('sta', '%d' % total_stas)
 
     def _view_update_handshakes(self, new, ap_mac_or_name=None):
         num_session = len(self._handshakes)
@@ -507,7 +523,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             raise StaleReconError()
 
         if not self._should_assoc(ap['mac']):
-            logger.info(f"skipping assoc({ap['mac']})")
+            logger.info(f"skipping assoc({ap['hostname']} {ap['mac']})")
             return
 
         self._view.on_assoc(ap)
@@ -587,7 +603,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                              "because no successful deauths or assocs have been "\
                              "previously made in this epoch")
 
-    def set_channel(self, channel, verbose=True):
+    def set_channel(self, channel: int, verbose=True):
         if self.is_stale():
             logger.debug("recon is stale, skipping set_channel(%d)", channel)
             raise StaleReconError()
@@ -601,15 +617,17 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self.run('wifi.recon.channel %d' % channel)
             self._current_channel = channel
 
-            if channel in self._access_points_by_channel:
-                logger.info(f"CHANNEL {channel}: {len(self._access_points_by_channel[channel])} APs")
+            stats = self.get_total_aps_stas_on_channel(channel)
+            if stats:
+                (aps, stas) = stats
+                logger.info(f"CHANNEL {channel}: {aps} APs {stas} STAs")
             else:
                 logger.info(f"CHANNEL {channel}")
 
             self._epoch.track(hop=True)
             self._view.set('channel', '%d' % channel)
 
-            self._view_update_aps_sta_ch(channel)
+            self._view_update_aps_stas(channel)
             plugins.on('channel_hop', self, channel)
 
         except Exception as e:
