@@ -99,8 +99,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         has_mon = False
 
         while has_mon is False:
-            s = self.session()
-            for iface in s['interfaces']:
+            for iface in self.session()['interfaces']:
                 if iface['name'] == mon_iface:
                     logger.info("found monitor interface: %s", iface['name'])
                     has_mon = True
@@ -131,7 +130,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def _wait_bettercap(self):
         while True:
             try:
-                _s = self.session()
+                logger.info(f"connected to bettercap session started at: {self.session('started-at')}")
                 return
             except Exception:
                 logger.info("waiting for bettercap API to become available ...")
@@ -205,19 +204,24 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._epoch.observe(aps, list(self._peers.values()))
         return self._access_points
 
-    def _fetch_access_points(self):
+    def _filter_aps(self, unfiltered_aps):
         whitelist = self._config['main']['whitelist']
         aps = []
+        for ap in unfiltered_aps:
+            if ap['encryption'] == '' or ap['encryption'] == 'OPEN':
+                continue
+            elif ap['hostname'] in whitelist or ap['mac'][:13].lower() in whitelist or ap['mac'].lower() in whitelist:
+                continue
+            else:
+                aps.append(ap)
+        return aps
+
+    def _fetch_access_points(self):
+        aps = []
         try:
-            s = self.session()
-            plugins.on("unfiltered_ap_list", self, s['wifi']['aps'])
-            for ap in s['wifi']['aps']:
-                if ap['encryption'] == '' or ap['encryption'] == 'OPEN':
-                    continue
-                elif ap['hostname'] in whitelist or ap['mac'][:13].lower() in whitelist or ap['mac'].lower() in whitelist:
-                    continue
-                else:
-                    aps.append(ap)
+            all_aps = self.session('wifi')['aps']
+            plugins.on("unfiltered_ap_list", self, all_aps)
+            aps = self._filter_aps(all_aps)
         except BettercapConnectionError as e:
             raise e
         except Exception as e:
@@ -268,8 +272,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                       key=lambda kv: len(kv[1]),
                       reverse=True)
 
-    def _find_ap_sta_in(self, station_mac, ap_mac, session):
-        for ap in session['wifi']['aps']:
+    def _resolve_sta_in_ap(self, ap_mac: str, station_mac: str) -> tuple[dict,dict] | None:
+        for ap in self.session('wifi')['aps']:
             if ap['mac'] == ap_mac:
                 for sta in ap['clients']:
                     if sta['mac'] == station_mac:
@@ -398,7 +402,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
             self._handshakes[key] = jmsg
             pwnd_ap = None  # name or mac addr
-            ap_and_station = self._find_ap_sta_in(sta_mac, ap_mac, self.session())
+            ap_and_station = self._resolve_sta_in_ap(ap_mac, sta_mac)
             if ap_and_station is None:
                 pwnd_ap = ap_mac
 
@@ -436,8 +440,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         threading.Thread(target=self._event_poller, args=(asyncio.get_event_loop(),), name="Event Polling", daemon=True).start()
 
     def is_module_running(self, module):
-        s = self.session()
-        for m in s['modules']:
+        modules = self.session('modules')
+        for m in modules:
             if m['name'] == module:
                 return m['running']
         return False

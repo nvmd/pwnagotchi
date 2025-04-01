@@ -152,13 +152,14 @@ class Client(object):
         self.http.mount('https://', adapter)
 
     # session takes optional argument to pull a sub-dictionary
-    #  ex.: "session/wifi", "session/ble"
-    def session(self, sess="session"):
+    #  ex.: sub="wifi" for "session/wifi",
+    #       sub="ble" for "session/ble"
+    def session(self, sub=None):
         try:
-            r = self.http.get("%s/%s" % (self.url, sess))
+            r = self.http.get("%s/%s" % (self.url, "session" + (f"/{sub}" if sub else "")))
             return decode(r)
         except Exception as e:
-            raise BettercapConnectionError(f"Error getting session {sess}") from e
+            raise BettercapConnectionError(f"Error getting session {sub}") from e
 
     async def start_websocket(self, consumer):
         s = "%s/events" % self.websocket
