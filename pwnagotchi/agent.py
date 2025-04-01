@@ -86,11 +86,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def _reset_wifi_settings(self):
         mon_iface = self._config['main']['iface']
         self.run('set wifi.interface %s' % mon_iface)
-        self.run('set wifi.ap.ttl %d' % self._config['personality']['ap_ttl'])
-        self.run('set wifi.sta.ttl %d' % self._config['personality']['sta_ttl'])
-        self.run('set wifi.rssi.min %d' % self._config['personality']['min_rssi'])
         self.run('set wifi.handshakes.file %s' % self._config['bettercap']['handshakes'])
         self.run('set wifi.handshakes.aggregate false')
+        self.update_policy_bettercap()
 
     def start_monitor_mode(self):
         mon_iface = self._config['main']['iface']
@@ -113,7 +111,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                     logger.info("waiting for monitor interface %s ...", mon_iface)
                     time.sleep(1)
 
-        logger.info("supported channels: %s", self._supported_channels)
+        logger.info("supported channels: %s", self.supported_channels())
         logger.info("handshakes will be collected inside %s", self._config['bettercap']['handshakes'])
 
         self._reset_wifi_settings()
@@ -135,15 +133,18 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             except Exception:
                 logger.info("waiting for bettercap API to become available ...")
                 time.sleep(1)
+                
+    def setup_monitor_bettercap(self):
+        self._wait_bettercap()
+        self.setup_events()
+        self.start_monitor_mode()
 
     def start(self):
         self.set_starting()
 
         self._maybe_start(self._config['ai']['enabled'], 'ai', self.start_ai)
 
-        self._wait_bettercap()
-        self.setup_events()
-        self.start_monitor_mode()
+        self.setup_monitor_bettercap()
         self.start_event_polling()
         self.start_session_fetcher()
         self._maybe_start(self._config['personality']['advertise'], 'advertising',
@@ -656,6 +657,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 logger.error("param %s not in personality configuration!" % name)
 
         # apply to bettercap
+        self.update_policy_bettercap()
+
+    def update_policy_bettercap(self):
         self.run('set wifi.ap.ttl %d' % self._config['personality']['ap_ttl'])
         self.run('set wifi.sta.ttl %d' % self._config['personality']['sta_ttl'])
         self.run('set wifi.rssi.min %d' % self._config['personality']['min_rssi'])

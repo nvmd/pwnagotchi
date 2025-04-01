@@ -107,8 +107,12 @@ def pwnagotchi_cli():
                 logging.warning("Attempting to restart bettercap")
 
                 os.system("service bettercap restart")
-                # reconfigure bettercap?
                 time.sleep(5)
+                try:
+                    agent.setup_monitor_bettercap()
+                    logging.warning("Bettercap seems to have recovered")
+                except:
+                    logging.critical("Bettercap didn't recover")
 
             except Exception as e:
                 if str(e).find("wifi.interface not set") > 0:
