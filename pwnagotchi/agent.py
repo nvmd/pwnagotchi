@@ -187,6 +187,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             ch = ap['channel']
             # if we're sticking to a channel, skip anything
             # which is not on that channel
+            # FIXME: this seems to cause get_total_aps_stas_on_channel
+            # not adding up to get_total_aps_stas
             if channels and ch not in channels:
                 continue
             if ch not in grouped:
@@ -246,18 +248,18 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self._tot_stas = total_stas
 
         return (self._tot_aps, self._tot_stas)
+    
+    def get_active_channels(self):
+        return list(self._access_points_by_channel.keys())
 
     def get_total_aps_stas_on_channel(self, channel: int) -> tuple[int,int] | None:
         if channel not in self._access_points_by_channel:
             return None
 
         if channel not in self._aps_stas_on_channel:
-            aps = self._access_points
-            # FIXME: reuse already computed _access_points_by_channel
-            # aps_ch = len(self._access_points_by_channel[channel])
-            aps_ch = len([ap for ap in aps if ap['channel'] == channel])
-            stas_ch = sum(
-                [len(ap['clients']) for ap in aps if ap['channel'] == channel])
+            aps_by_ch = self._access_points_by_channel
+            aps_ch = len(self._access_points_by_channel[channel])
+            stas_ch = sum([len(ap['clients']) for ap in aps_by_ch[channel] ])
             self._aps_stas_on_channel[channel] = (aps_ch, stas_ch)
 
         return self._aps_stas_on_channel[channel]
@@ -291,7 +293,14 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self._view.set('aps', '%d (%d)' % (aps_ch, total_aps))
             self._view.set('sta', '%d (%d)' % (stas_ch, total_stas))
         else:
-            logger.info(f"Wi-Fi observation: {total_aps} APs, {total_stas} STAs")
+            # BUG: channel values don't add up to total values, see
+            #      "FIXME" in `_set_access_points` for more
+            logger.info(f"Wi-Fi observation: {total_aps} APs, {total_stas} STAs on channels {self.get_active_channels()}")
+            logger.info("           aps  stas")
+            for ch in self.get_active_channels():
+                (aps,stas) = self.get_total_aps_stas_on_channel(ch)
+                logger.info(f" CH {ch:>3}: {aps:>5} {stas:>5}")
+
             self._view.set('aps', '%d' % total_aps)
             self._view.set('sta', '%d' % total_stas)
 
