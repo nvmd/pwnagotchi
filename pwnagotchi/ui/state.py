@@ -1,8 +1,8 @@
 from threading import Lock
-
+from pwnagotchi.ui.components import Widget, Text, LabeledValue
 
 class State(object):
-    def __init__(self, state={}):
+    def __init__(self, state: dict[str, Widget|Text|LabeledValue]={}):
         self._state = state # all ui elements
         self._lock = Lock()
         self._listeners = {}
