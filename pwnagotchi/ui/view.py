@@ -13,7 +13,6 @@ from pwnagotchi.ui.hw.base import DisplayImpl
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.faces as faces
 import pwnagotchi.ui.fonts as fonts
-import pwnagotchi.ui.web as web
 import pwnagotchi.utils as utils
 
 from pwnagotchi.ui.components import *
@@ -441,8 +440,6 @@ class View(object):
                 for key, lv in state.items():
                     # lv is a ui element
                     lv.draw(self._canvas, drawer)
-
-                web.update_frame(self._canvas)
 
                 for cb in self._render_cbs:
                     cb(self._canvas)

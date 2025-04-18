@@ -12,10 +12,12 @@ from flask import Flask
 from flask_cors import CORS
 from flask_wtf.csrf import CSRFProtect
 
+from pwnagotchi.ui import web
+from pwnagotchi.agent import Agent
 from pwnagotchi.ui.web.handler import Handler
 
 class Server:
-    def __init__(self, agent, config):
+    def __init__(self, agent: Agent, config):
         self._config = config['web']
         self._enabled = self._config['enabled']
         self._port = self._config['port']
@@ -27,6 +29,9 @@ class Server:
 
         if self._enabled:
             #_thread.start_new_thread(self._http_serve, ())
+            if hasattr(agent, 'view'):
+                logging.info("Registering Web-UI face render callback")
+                agent.view().on_render(web.update_frame)
             logging.info("Starting WebServer thread")
             self._thread = threading.Thread(target=self._http_serve, name="WebServer", daemon = True).start()
 
