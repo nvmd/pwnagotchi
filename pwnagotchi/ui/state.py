@@ -49,11 +49,19 @@ class State(object):
 
     def set(self, key, value):
         with self._lock:
-            if key in self._state:
-                prev = self._state[key].value
-                self._state[key].value = value
+            self._set_unsafe(key, value)
 
-                if prev != value:
-                    self._changes[key] = True
-                    if key in self._listeners and self._listeners[key] is not None:
-                        self._listeners[key](prev, value)
+    def set_data(self, new_data: dict[str, str]):
+        with self._lock:
+            for key, val in new_data.items():
+                self._set_unsafe(key, val)
+
+    def _set_unsafe(self, key, value):
+        if key in self._state:
+            prev = self._state[key].value
+            self._state[key].value = value
+
+            if prev != value:
+                self._changes[key] = True
+                if key in self._listeners and self._listeners[key] is not None:
+                    self._listeners[key](prev, value)
