@@ -35,17 +35,16 @@ class State(object):
         with self._lock:
             self._changes = {}
 
-    def changes(self, ignore=()):
+    def changes(self, ignore=()) -> list[str]:
         with self._lock:
-            changes = []
-            for change in self._changes.keys():
-                if change not in ignore:
-                    changes.append(change)
-            return changes
+            return self._filter_changes_unsafe(ignore)
 
-    def has_changes(self):
+    def has_changes(self, ignore=()) -> int:
         with self._lock:
-            return len(self._changes) > 0
+            if ignore != ():
+                return len(self._filter_changes_unsafe(ignore)) > 0
+            else:
+                return len(self._changes) > 0
 
     def set(self, key, value):
         with self._lock:
@@ -65,3 +64,7 @@ class State(object):
                 self._changes[key] = True
                 if key in self._listeners and self._listeners[key] is not None:
                     self._listeners[key](prev, value)
+                    
+    def _filter_changes_unsafe(self, ignore=()):
+        return list(filter(lambda change: change not in ignore,
+                           self._changes.keys()))
