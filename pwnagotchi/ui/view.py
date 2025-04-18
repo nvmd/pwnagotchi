@@ -152,8 +152,10 @@ class View(object):
 
             time.sleep(delay)
 
-    def set(self, key, value):
+    def set(self, key: str, value: str):
         self._state.set(key, value)
+    def set_data(self, new_data: dict[str,str]):
+        self._state.set_data(new_data)
 
     def get(self, key):
         return self._state.get(key)
@@ -422,9 +424,8 @@ class View(object):
 
         self.on_normal()
 
-    def update(self, force=False, new_data={}, freeze=False):
-        for key, val in new_data.items():
-            self.set(key, val)
+    def update(self, force=False, new_data: dict[str, str]={}, freeze=False):
+        self.set_data(new_data)
 
         with self._lock:
             if self._frozen:
