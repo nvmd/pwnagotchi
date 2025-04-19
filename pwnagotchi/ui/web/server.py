@@ -17,23 +17,23 @@ from pwnagotchi.agent import Agent
 from pwnagotchi.ui.web.handler import Handler
 
 class Server:
-    def __init__(self, agent: Agent, config):
-        self._config = config['web']
+    def __init__(self, agent: Agent, config: dict[str,]):
+        self._config = config
         self._enabled = self._config['enabled']
         self._port = self._config['port']
         self._address = self._config['address']
+        self._thread = None
         self._origin = None
         self._agent = agent
         if 'origin' in self._config:
             self._origin = self._config['origin']
 
-        if self._enabled:
-            #_thread.start_new_thread(self._http_serve, ())
-            if hasattr(agent, 'view'):
-                logging.info("Registering Web-UI face render callback")
-                agent.view().on_render(web.update_frame)
-            logging.info("Starting WebServer thread")
-            self._thread = threading.Thread(target=self._http_serve, name="WebServer", daemon = True).start()
+    def start(self):
+        if hasattr(self._agent, 'view'):
+            logging.info("Registering Web-UI face render callback")
+            self._agent.view().on_render(web.update_frame)
+        logging.info("Starting WebServer thread")
+        self._thread = threading.Thread(target=self._http_serve, name="WebServer", daemon = True).start()
 
     def _http_serve(self):
         if self._address is not None:

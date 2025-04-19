@@ -14,7 +14,6 @@ import pwnagotchi.plugins as plugins
 from pwnagotchi import Mode
 from pwnagotchi.ui.view import View
 from pwnagotchi.identity import KeyPair
-from pwnagotchi.ui.web.server import Server
 from pwnagotchi.automata import Automata
 from pwnagotchi.log import LastSession
 from pwnagotchi.bettercap import Client, BettercapConnectionError, BettercapError, BettercapUnknownBSSIDError, BettercapInterfaceNotFoundError
@@ -45,7 +44,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._supported_channels = utils.iface_channels(config['main']['iface'])
         self._view = view
         self._view.set_agent(self)
-        self._web_ui = Server(self, config['ui'])
+        self._web_ui = None # optional start
 
         self._current_channel = None
         # APs from the last recon
@@ -140,9 +139,15 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self.setup_events()
         self.start_monitor_mode()
 
+    def start_webui(self):
+        from pwnagotchi.ui.web.server import Server
+        self._web_ui = Server(self, self._config['ui']['web'])
+        self._web_ui.start()
+
     def start(self):
         self.set_starting()
 
+        self._maybe_start(self._config['ui']['web']['enabled'], 'web.ui', self.start_webui)
         self._maybe_start(self._config['ai']['enabled'], 'ai', self.start_ai)
 
         self.setup_monitor_bettercap()

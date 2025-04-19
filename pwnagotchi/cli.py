@@ -30,6 +30,7 @@ def pwnagotchi_cli():
         logging.info("entering manual mode ...")
 
         agent.mode = Mode.MANUAL
+        agent.start_webui()
         agent.last_session.parse(agent.view(), args.skip_session)
         if not args.skip_session:
             logging.info(
