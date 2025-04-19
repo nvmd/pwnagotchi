@@ -15,7 +15,7 @@ os.environ['WERKZEUG_RUN_MAIN'] = 'false'
 import pwnagotchi
 import pwnagotchi.grid as grid
 import pwnagotchi.ui.web as web
-from pwnagotchi import plugins
+from pwnagotchi import plugins,Mode
 
 from flask import send_file
 from flask import Response
@@ -75,7 +75,7 @@ class Handler:
     def index(self):
         return render_template('index.html',
                                title=pwnagotchi.name(),
-                               other_mode='AUTO' if self._agent.mode == 'manual' else 'MANU',
+                               other_mode=Mode.AUTO.name if self._agent.mode == Mode.MANUAL else Mode.MANUAL.name,
                                fingerprint=self._agent.fingerprint())
 
     def inbox(self):
@@ -219,13 +219,16 @@ class Handler:
 
     # serve a message and restart the unit in the other mode
     def restart(self):
-        mode = request.form['mode']
-        if mode not in ('AUTO', 'MANU'):
-            mode = 'MANU'
+        try:
+            mode_name = request.form['mode']
+            mode = getattr(Mode, mode_name)
+        except AttributeError:
+            logging.error(f"'{mode_name}' is not a valid Mode")
+            abort(400)
 
         try:
             return render_template('status.html', title=pwnagotchi.name(), go_back_after=30,
-                                   message='Restarting in %s mode ...' % mode)
+                                   message='Restarting in %s mode ...' % mode.name)
         finally:
             _thread.start_new_thread(pwnagotchi.restart, (mode, "Web user's request", __name__))
 

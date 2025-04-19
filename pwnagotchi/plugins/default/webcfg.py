@@ -3,7 +3,7 @@ import json
 import toml
 import _thread
 import pwnagotchi
-from pwnagotchi import restart, plugins
+from pwnagotchi import restart, Mode, plugins
 from pwnagotchi.utils import save_config, merge_config
 from flask import abort
 from flask import render_template_string
@@ -494,7 +494,7 @@ class WebConfig(plugins.Plugin):
 
     def __init__(self):
         self.ready = False
-        self.mode = 'MANU'
+        self.mode = Mode.MANUAL
         self._agent = None
 
     def on_config_changed(self, config):
@@ -503,11 +503,11 @@ class WebConfig(plugins.Plugin):
 
     def on_ready(self, agent):
         self._agent = agent
-        self.mode = 'MANU' if agent.mode == 'manual' else 'AUTO'
+        self.mode = agent.mode
 
     def on_internet_available(self, agent):
         self._agent = agent
-        self.mode = 'MANU' if agent.mode == 'manual' else 'AUTO'
+        self.mode = agent.mode
 
     def on_loaded(self):
         """

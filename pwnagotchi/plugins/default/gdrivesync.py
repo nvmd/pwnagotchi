@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import time
+from pwnagotchi import Mode
 import pwnagotchi.plugins as plugins
 import pwnagotchi
 import pydrive2
@@ -110,7 +111,7 @@ class GdriveSync(plugins.Plugin):
                     self.ready = True
                     logging.info("[gdrivesync] loaded")
                     # Restart so we can start opwngrid with the backup id
-                    pwnagotchi.restart("AUTO", reason_msg="to start OPwnGrid with backup id", requested_by=__name__)
+                    pwnagotchi.restart(Mode.AUTO, reason_msg="to start OPwnGrid with backup id", requested_by=__name__)
 
                 # all set, gdriveSync is ready to run
             self.ready = True

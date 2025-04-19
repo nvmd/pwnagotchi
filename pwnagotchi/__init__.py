@@ -2,12 +2,17 @@ import os
 import logging
 import time
 import re
+from enum import Enum
 
 from pwnagotchi._version import __version__
 
 _name = None
 config = None
 _cpu_stats = {}
+
+class Mode(Enum):
+    AUTO = 1
+    MANUAL = 2
 
 def set_name(new_name):
     if new_name is None:
@@ -126,13 +131,14 @@ def shutdown(reason_msg=None, requested_by=None):
     os.system("halt")
 
 
-def restart(mode, reason_msg=None, requested_by=None):
-    logging.warning(f"restarting in {mode} mode, reason={reason_msg}, by={requested_by}...")
-    mode = mode.upper()
-    if mode == 'AUTO':
-        os.system("touch /root/.pwnagotchi-auto")
-    else:
-        os.system("touch /root/.pwnagotchi-manual")
+def restart(mode: Mode|None, reason_msg=None, requested_by=None):
+    logging.warning(f"restarting: mode={mode}, reason={reason_msg}, by={requested_by}...")
+
+    match mode:
+        case Mode.AUTO:
+            os.system("touch /root/.pwnagotchi-auto")
+        case Mode.MANUAL:
+            os.system("touch /root/.pwnagotchi-manual")
 
     os.system("service bettercap restart")
     time.sleep(1)
@@ -142,12 +148,8 @@ def restart(mode, reason_msg=None, requested_by=None):
     os._exit(2) # kill all threads
 
 
-def reboot(mode=None, reason_msg=None, requested_by=None):
-    if mode is not None:
-        mode = mode.upper()
-        logging.warning(f"rebooting in {mode} mode, reason={reason_msg}, by={requested_by}...")
-    else:
-        logging.warning(f"rebooting, reason={reason_msg}, by={requested_by}...")
+def reboot(mode: Mode|None = None, reason_msg=None, requested_by=None):
+    logging.warning(f"rebooting: mode={mode}, reason={reason_msg}, by={requested_by}...")
 
     from pwnagotchi.ui import view
     if view.ROOT:
@@ -155,10 +157,11 @@ def reboot(mode=None, reason_msg=None, requested_by=None):
         # give it some time to refresh the ui
         time.sleep(10)
 
-    if mode == 'AUTO':
-        os.system("touch /root/.pwnagotchi-auto")
-    elif mode == 'MANU':
-        os.system("touch /root/.pwnagotchi-manual")
+    match mode:
+        case Mode.AUTO:
+            os.system("touch /root/.pwnagotchi-auto")
+        case Mode.MANUAL:
+            os.system("touch /root/.pwnagotchi-manual")
 
     logging.warning("syncing...")
 

@@ -6,7 +6,7 @@ import random
 import os
 
 import pwnagotchi
-from pwnagotchi import plugins
+from pwnagotchi import Mode, plugins
 from pwnagotchi.agent import Agent
 from pwnagotchi.ai.epoch import Epoch
 from pwnagotchi.ui.view import View
@@ -212,7 +212,7 @@ class FixServices(plugins.Plugin):
                                     display, {"status": "Restarting pwnagotchi!",
                                               "face": faces.COOL},
                                     True)
-        agent._restart("AUTO", reason_msg="Remedy", requested_by=__name__)
+        agent._restart(Mode.AUTO, reason_msg="Remedy", requested_by=__name__)
 
     def _remedy_bettercap_recon_off_on(self, agent: Client, display: View, fail_callback=None, exc_callback=None):
         try:

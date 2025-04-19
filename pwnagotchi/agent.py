@@ -11,6 +11,7 @@ import subprocess
 import pwnagotchi
 import pwnagotchi.utils as utils
 import pwnagotchi.plugins as plugins
+from pwnagotchi import Mode
 from pwnagotchi.ui.view import View
 from pwnagotchi.identity import KeyPair
 from pwnagotchi.ui.web.server import Server
@@ -58,7 +59,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._last_pwnd = None
 
         self.last_session = LastSession(self._config)
-        self.mode = 'auto'
+        self.mode = Mode.AUTO
 
         if not os.path.exists(config['bettercap']['handshakes']):
             os.makedirs(config['bettercap']['handshakes'])
@@ -325,7 +326,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._save_recovery_data()
         pwnagotchi.reboot(reason_msg=reason_msg, requested_by=requested_by)
 
-    def _restart(self, mode='AUTO', reason_msg=None, requested_by=None):
+    def _restart(self, mode=Mode.AUTO, reason_msg=None, requested_by=None):
         self._save_recovery_data()
         pwnagotchi.restart(mode, reason_msg=reason_msg, requested_by=requested_by)
 

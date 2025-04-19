@@ -9,6 +9,7 @@ import os
 import re
 
 import pwnagotchi
+from pwnagotchi import Mode
 from pwnagotchi.agent import Agent
 from pwnagotchi.agent import StaleReconError
 from pwnagotchi.ui.display import Display
@@ -28,7 +29,7 @@ def pwnagotchi_cli():
     def do_manual_mode(agent: Agent):
         logging.info("entering manual mode ...")
 
-        agent.mode = 'manual'
+        agent.mode = Mode.MANUAL
         agent.last_session.parse(agent.view(), args.skip_session)
         if not args.skip_session:
             logging.info(
@@ -51,7 +52,7 @@ def pwnagotchi_cli():
 
         logging.info("entering auto mode ...")
 
-        agent.mode = 'auto'
+        agent.mode = Mode.AUTO
         agent.last_session.parse(agent.view(), args.skip_session)  # show stats in AUTO
         agent.start()
 
@@ -350,7 +351,7 @@ def pwnagotchi_cli():
 
     def usr1_handler(*unused):
         logging.info('Received USR1 signal. Restart process ...')
-        agent._restart("MANU" if args.do_manual else "AUTO", reason_msg="USR1 signal")
+        agent._restart(Mode.MANUAL if args.do_manual else Mode.AUTO, reason_msg="USR1 signal")
 
     signal.signal(signal.SIGUSR1, usr1_handler)
 
