@@ -26,7 +26,7 @@ class StaleReconError(Exception):
     pass
 
 class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
-    def __init__(self, view: View, config: dict, keypair: KeyPair):
+    def __init__(self, view: View, config: dict[str,], keypair: KeyPair):
         Client.__init__(self,
                         "127.0.0.1" if "hostname" not in config['bettercap'] else config['bettercap']['hostname'],
                         "http" if "scheme" not in config['bettercap'] else config['bettercap']['scheme'],
