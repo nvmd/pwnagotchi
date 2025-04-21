@@ -19,12 +19,14 @@ from pwnagotchi.ui.components import *
 from pwnagotchi.ui.state import State
 from pwnagotchi.voice import Voice
 
+from collections.abc import ValuesView
+
 WHITE = 0x00  # white is actually black on jays image
 BLACK = 0xFF  # black is actually white on jays image
 
 
 class View(object):
-    def __init__(self, config, impl: DisplayImpl, state=None):
+    def __init__(self, config: dict[str,], impl: DisplayImpl, state=None):
         global ROOT, BLACK, WHITE
 
         self.invert = 0
