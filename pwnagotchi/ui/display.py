@@ -312,7 +312,8 @@ class Display(View):
             plugins.on('display_setup', self._implementation)
         else:
             logging.warning("display module is disabled")
-        self.on_render(self._on_view_rendered)
+        self.on_render(self._do_render_display)
+        self.on_render(self._do_exec_command)
 
     def clear(self):
         self._implementation.clear()
@@ -328,13 +329,15 @@ class Display(View):
             self._canvas_next_event.clear()
             self._implementation.render(self._canvas_next)
 
-    def _on_view_rendered(self, view_canvas: Image):
+    def _do_exec_command(self, _view_canvas: Image):
+        on_frame_cmd = self._config['ui']['on_frame']
         try:
-            if self._config['ui']['web']['on_frame'] != '':
-                os.system(self._config['ui']['web']['on_frame'])
+            if on_frame_cmd != '':
+                os.system(on_frame_cmd)
         except Exception as e:
             logging.error("%s" % e)
 
+    def _do_render_display(self, view_canvas: Image):
         if self._enabled and (self._implementation is not None):
             # apply display-specific transformations
             display_canvas = view_canvas.rotate(self._rotation)

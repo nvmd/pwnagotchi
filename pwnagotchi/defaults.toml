@@ -144,6 +144,7 @@ ui.cursor = true
 ui.fps = 0.0
 ui.font.name = "DejaVuSansMono" # for japanese: fonts-japanese-gothic
 ui.font.size_offset = 0 # will be added to the font size
+ui.on_frame = ""        # exec command every frame
 
 ui.faces.look_r = "( ⚆_⚆)"
 ui.faces.look_l = "(☉_☉ )"
@@ -180,7 +181,6 @@ ui.web.username = "changeme"
 ui.web.password = "changeme"
 ui.web.origin = ""
 ui.web.port = 8080
-ui.web.on_frame = ""
 
 ui.display.enabled = false
 ui.display.rotation = 180
