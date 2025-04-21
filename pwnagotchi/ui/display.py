@@ -5,6 +5,7 @@ import threading
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.hw as hw
 from pwnagotchi.ui.view import View
+from PIL.Image import Image
 
 
 class Display(View):
@@ -13,7 +14,7 @@ class Display(View):
         config = config['ui']['display']
 
         self._enabled = config['enabled']
-        self._rotation = config['rotation']
+        self._rotation = config['rotation'] # rotation angle
 
         self.init_display()
 
@@ -317,10 +318,7 @@ class Display(View):
         self._implementation.clear()
 
     def image(self):
-        img = None
-        if self._canvas is not None:
-            img = self._canvas if self._rotation == 0 else self._canvas.rotate(-self._rotation)
-        return img
+        return self._canvas
 
     def _render_thread(self):
         """Used for non-blocking screen updating."""
@@ -330,15 +328,16 @@ class Display(View):
             self._canvas_next_event.clear()
             self._implementation.render(self._canvas_next)
 
-    def _on_view_rendered(self, img):
+    def _on_view_rendered(self, view_canvas: Image):
         try:
             if self._config['ui']['web']['on_frame'] != '':
                 os.system(self._config['ui']['web']['on_frame'])
         except Exception as e:
             logging.error("%s" % e)
 
-        if self._enabled:
-            self._canvas = (img if self._rotation == 0 else img.rotate(self._rotation))
-            if self._implementation is not None:
-                self._canvas_next = self._canvas
-                self._canvas_next_event.set()
+        if self._enabled and (self._implementation is not None):
+            # apply display-specific transformations
+            display_canvas = view_canvas.rotate(self._rotation)
+            # signal canvas is ready to render on hardware display
+            self._canvas_next = display_canvas
+            self._canvas_next_event.set()
