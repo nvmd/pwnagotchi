@@ -16,6 +16,7 @@ import pwnagotchi
 import pwnagotchi.grid as grid
 import pwnagotchi.ui.web as web
 from pwnagotchi import plugins,Mode
+from pwnagotchi.agent import Agent
 
 from flask import send_file
 from flask import Response
@@ -27,7 +28,7 @@ from flask import render_template, render_template_string
 
 
 class Handler:
-    def __init__(self, config, agent, app):
+    def __init__(self, config: dict[str,], agent: Agent, app):
         self._config = config
         self._agent = agent
         self._app = app
@@ -230,7 +231,7 @@ class Handler:
             return render_template('status.html', title=pwnagotchi.name(), go_back_after=30,
                                    message='Restarting in %s mode ...' % mode.name)
         finally:
-            _thread.start_new_thread(pwnagotchi.restart, (mode, "Web user's request", __name__))
+            _thread.start_new_thread(pwnagotchi._restart, (mode, "Web user's request", __name__))
 
     # serve the PNG file with the display image
     def ui(self):
