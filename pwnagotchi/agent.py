@@ -231,7 +231,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             # consider exceptions other than from bettercap safe to ignore
             logger.exception("Error while getting access points (%s)", e)
 
-        aps.sort(key=lambda ap: ap['channel'])
+        # sort in descending order: stronger > weaker signal
+        aps.sort(key=lambda ap: ap['rssi'], reverse=True)
         return self._set_access_points(aps)
 
     def _reset_recon_caches(self):
