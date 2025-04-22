@@ -181,16 +181,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._access_points = aps
 
         # Group APs by channel
-        channels = self._config['personality']['channels']
         grouped = {}
         for ap in aps:
             ch = ap['channel']
-            # if we're sticking to a channel, skip anything
-            # which is not on that channel
-            # FIXME: this seems to cause get_total_aps_stas_on_channel
-            # not adding up to get_total_aps_stas
-            if channels and ch not in channels:
-                continue
             if ch not in grouped:
                 grouped[ch] = [ap]
             else:
@@ -208,12 +201,19 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         return self._access_points
 
     def _filter_aps(self, unfiltered_aps):
-        whitelist = self._config['main']['whitelist']
+        # Only APs on these channels will be interacted with
+        channel_whitelist = self._config['personality']['channels']
+        # AP blacklisting configuration option name is the opposite of what it does
+        # the APs in this list won't be interacted with!
+        ap_blacklist = self._config['main']['whitelist']
+
         aps = []
         for ap in unfiltered_aps:
             if ap['encryption'] == '' or ap['encryption'] == 'OPEN':
                 continue
-            elif ap['hostname'] in whitelist or ap['mac'][:13].lower() in whitelist or ap['mac'].lower() in whitelist:
+            elif ap['hostname'] in ap_blacklist or ap['mac'][:13].lower() in ap_blacklist or ap['mac'].lower() in ap_blacklist:
+                continue
+            elif ap['channel'] not in channel_whitelist:
                 continue
             else:
                 aps.append(ap)
