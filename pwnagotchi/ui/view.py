@@ -432,19 +432,27 @@ class View(object):
                 return
             self._frozen = freeze
 
-            state = self._state
-            changes = state.changes(ignore=self._ignore_changes)
-            if force or len(changes):
-                self._canvas = Image.new('1', (self._width, self._height), self._white)
-                drawer = ImageDraw.Draw(self._canvas)
+            if not force:
+                # check if we need to render because there're changes
+                need_render = self._state.has_changes(ignore=self._ignore_changes)
+                # no changes and no `force` -> skip render
+                if not need_render:
+                    return
 
-                plugins.on('ui_update', self)
+            # Collect the items to render and reset change tracker
+            items_to_render = self._state.reset().values()
+            self._render(items_to_render)
+ 
+            plugins.on('ui_update', self)
 
-                for key, lv in state.items():
-                    # lv is a ui element
-                    lv.draw(self._canvas, drawer)
+    def _render(self, items_to_render: ValuesView[Widget]):
+        self._canvas = Image.new('1', (self._width, self._height), self._white)
+        drawer = ImageDraw.Draw(self._canvas)
 
-                for cb in self._render_cbs:
-                    cb(self._canvas)
+        for lv in items_to_render:
+            # lv is a ui element
+            lv.draw(self._canvas, drawer)
 
-                self._state.reset()
+        # Render canvas
+        for cb in self._render_cbs:
+            cb(self._canvas)
