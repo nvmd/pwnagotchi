@@ -231,7 +231,7 @@ class Handler:
             return render_template('status.html', title=pwnagotchi.name(), go_back_after=30,
                                    message='Restarting in %s mode ...' % mode.name)
         finally:
-            _thread.start_new_thread(pwnagotchi._restart, (mode, "Web user's request", __name__))
+            _thread.start_new_thread(self._agent._restart, (mode, "Web user's request", __name__))
 
     # serve the PNG file with the display image
     def ui(self):
