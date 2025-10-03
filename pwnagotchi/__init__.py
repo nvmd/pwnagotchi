@@ -171,3 +171,9 @@ def reboot(mode: Mode|None = None, reason_msg=None, requested_by=None):
 
     os.system("sync")
     os.system("shutdown -r now")
+
+try:
+    from .app import Pwnagotchi  # optional convenience export
+except Exception:
+    # app may not exist during some install-time operations
+    pass
